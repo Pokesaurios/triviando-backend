@@ -1,1 +1,0 @@
-// scaffold: room.controller.ts

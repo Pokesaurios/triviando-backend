@@ -1,1 +1,0 @@
-// scaffold: trivia.controller.ts

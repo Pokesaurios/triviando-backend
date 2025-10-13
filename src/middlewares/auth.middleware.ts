@@ -1,1 +1,0 @@
-// scaffold: auth.middleware.ts
