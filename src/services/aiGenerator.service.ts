@@ -1,48 +1,53 @@
-// src/services/aiGenerator.service.ts
-import { HfInference } from "@huggingface/inference";
-import dotenv from "dotenv";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-dotenv.config();
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "API_KEY_NO_CONFIGURADA";
+const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
+export async function generateQuestions(topic: string, quantity: number): Promise<any[]> {
+  const prompt = `
+Eres un generador de trivias. Crea ${quantity} preguntas sobre "${topic}".
 
-export const generateTriviaWithAI = async (
-  topic: string,
-  quantity: number = 10,
-  language: "es" | "en" = "es"
-) => {
-  try {
-    const prompt = `
-Genera ${quantity} preguntas de trivia sobre el tema "${topic}" en ${language === "es" ? "español" : "inglés"}.
-Devuelve el resultado en formato JSON con esta estructura:
+REQUISITOS:
+- Distribución: ${Math.round(quantity/3)} fáciles, ${Math.round(quantity/3)} medias, ${Math.round(quantity/3)} difíciles
+- 4 opciones por pregunta, 1 correcta
+- Opciones incorrectas: plausibles pero claramente erróneas
+
+FORMATO JSON:
 [
   {
-    "question": "texto de la pregunta",
-    "options": ["opción 1", "opción 2", "opción 3", "opción 4"],
-    "correctAnswer": "texto exacto de la respuesta correcta"
+    "question": "Texto pregunta?",
+    "options": {"A": "Texto", "B": "Texto", "C": "Texto", "D": "Texto"},
+    "correctAnswer": "A|B|C|D",
+    "difficulty": "easy|medium|hard",
   }
 ]
-`;
 
-    // ✅ Sin usar provider (la API gratuita no lo permite)
-    const response = await hf.textGeneration({
-      model: "nm-testing/llama2.c-stories15M", // Modelo gratuito
-      inputs: prompt,
-      parameters: { max_new_tokens: 800 },
-    });
+CRITERIOS DIFICULTAD:
+• FÁCIL: 80% conocería la respuesta
+• MEDIA: 50% conocería la respuesta  
+• DIFÍCIL: 20% conocería la respuesta
 
-    const text = response.generated_text || "";
+Solo responde con el JSON.
+  `;
 
-    // Buscar el JSON dentro del texto generado
-    const jsonMatch = text.match(/\[.*\]/s);
-    if (!jsonMatch) throw new Error("No se encontró JSON válido en la respuesta.");
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
-    const questions = JSON.parse(jsonMatch[0]);
-    return questions;
-  } catch (error: any) {
-    console.error("❌ Error al generar trivia con Hugging Face:", error.message);
-    throw new Error(
-      `Error al generar trivia con Hugging Face: ${error.message}`
-    );
+  const result = await model.generateContent(prompt);
+  const text = result.response.text();
+
+  const jsonStart = text.indexOf("[");
+  const jsonEnd = text.lastIndexOf("]") + 1;
+  let jsonStr = text.substring(jsonStart, jsonEnd);
+
+  try {
+    const questions = JSON.parse(jsonStr);
+    return questions.map((q: any) => ({
+      question: q.question,
+      options: [q.options.A, q.options.B, q.options.C, q.options.D],
+      correctAnswer: q.options[q.correctAnswer],
+      difficulty: q.difficulty,
+    }));
+  } catch (err) {
+    throw new Error("No se pudo parsear la respuesta de Gemini. Respuesta: " + text);
   }
-};
+}

@@ -7,7 +7,7 @@ import triviaRoutes from "./routes/trivia.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { setupSwagger } from "./config/swagger";
 
-dotenv.config();
+dotenv.config({ path: ".env" });
 
 const app = express();
 
