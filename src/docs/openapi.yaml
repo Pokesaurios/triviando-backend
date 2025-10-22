@@ -82,13 +82,10 @@ paths:
 
   /trivia/generate:
     post:
+      summary: Generar trivia automática con IA
+      description: Genera una trivia basada en un tema usando inteligencia artificial (Gemini).
       tags:
-        - Trivias
-      summary: Generar trivia con inteligencia artificial
-      description: >
-        Genera automáticamente una trivia a partir de un tema utilizando la API de IA (OpenAI).  
-        Las preguntas incluyen dificultad, opciones y una respuesta correcta.  
-        **Nota:** Este endpoint requiere un token JWT válido.
+        - Trivia
       security:
         - bearerAuth: []
       requestBody:
@@ -97,23 +94,21 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - topic
+                - quantity
               properties:
-                tema:
+                topic:
                   type: string
-                  description: Tema sobre el cual generar la trivia.
-                  example: Historia de Colombia
-                cantidadPreguntas:
+                  example: "Historia de Colombia"
+                quantity:
                   type: integer
-                  description: Número de preguntas a generar (mínimo 5).
+                  minimum: 3
+                  maximum: 15
                   example: 6
-                idioma:
-                  type: string
-                  description: Idioma de la trivia.
-                  enum: [es, en, fr]
-                  example: es
       responses:
         "201":
-          description: Trivia generada exitosamente.
+          description: Trivia generada exitosamente
           content:
             application/json:
               schema:
@@ -121,33 +116,36 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: Trivia generada exitosamente
+                    example: Trivia generada exitosamente 🎉
                   triviaId:
                     type: string
-                    example: 670cfbc276a1425b3d8a6712
-                  preguntas:
+                    example: 671e8a12c49dba0012d87aa4
+                  totalQuestions:
                     type: integer
                     example: 6
-              examples:
-                ejemploTrivia:
-                  summary: Ejemplo de trivia generada
-                  value:
-                    message: Trivia generada exitosamente
-                    triviaId: 670cfbc276a1425b3d8a6712
-                    preguntas: 6
+                  preview:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        question:
+                          type: string
+                          example: "¿Quién fue el libertador de Colombia?"
+                        options:
+                          type: array
+                          items:
+                            type: string
+                          example: ["Simón Bolívar", "Francisco de Paula Santander", "Antonio Nariño", "José María Córdoba"]
+                        correctAnswer:
+                          type: string
+                          example: "Simón Bolívar"
+                        difficulty:
+                          type: string
+                          example: "easy"
         "400":
-          description: Tema inválido o vacío.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: Debes ingresar un tema válido
+          description: Error de validación (tema o cantidad inválida)
         "500":
-          description: Error interno o respuesta inválida de la IA.
-
+          description: Error interno o fallo de IA
 components:
   securitySchemes:
     bearerAuth:
@@ -192,3 +190,175 @@ components:
               explicacion:
                 type: string
                 example: Bolívar lideró la independencia de Colombia en 1819.
+  /rooms:
+    post:
+      summary: Crear una nueva sala
+      description: Crea una sala multijugador asociada a una trivia y devuelve su código único.
+      tags:
+        - Salas
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic:
+                  type: string
+                  example: "Cultura general"
+                triviaId:
+                  type: string
+                  example: 671e8a12c49dba0012d87aa4
+                maxPlayers:
+                  type: integer
+                  example: 4
+      responses:
+        "201":
+          description: Sala creada exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Room created successfully
+                  roomId:
+                    type: string
+                    example: 671f29b6b95dbe0014e9e103
+                  code:
+                    type: string
+                    example: X4BZ7Q
+                  topic:
+                    type: string
+                    example: Cultura general
+                  maxPlayers:
+                    type: integer
+                    example: 4
+        "401":
+          description: Usuario no autenticado
+        "500":
+          description: Error al crear la sala
+
+  /rooms/join:
+    post:
+      summary: Unirse a una sala existente
+      description: Permite a un usuario autenticado unirse a una sala ingresando su código.
+      tags:
+        - Salas
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  example: X4BZ7Q
+      responses:
+        "200":
+          description: Unión exitosa a la sala
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Joined room successfully
+                  room:
+                    $ref: "#/components/schemas/Room"
+        "404":
+          description: Sala no encontrada o llena
+        "400":
+          description: El usuario ya está en la sala
+
+  /rooms/{code}:
+    get:
+      summary: Obtener información de una sala
+      description: Devuelve los detalles de una sala por su código, incluyendo jugadores conectados.
+      tags:
+        - Salas
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            example: X4BZ7Q
+      responses:
+        "200":
+          description: Información de la sala
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Room"
+        "404":
+          description: Sala no encontrada
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Room:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 671f29b6b95dbe0014e9e103
+        code:
+          type: string
+          example: X4BZ7Q
+        hostId:
+          type: string
+          example: 671f2939b95dbe0014e9e0ff
+        topic:
+          type: string
+          example: Cultura general
+        triviaId:
+          type: string
+          example: 671e8a12c49dba0012d87aa4
+        status:
+          type: string
+          enum: [waiting, in-game, finished]
+          example: waiting
+        maxPlayers:
+          type: integer
+          example: 4
+        players:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+                example: 671f2939b95dbe0014e9e0ff
+              name:
+                type: string
+                example: Juan Pérez
+              socketId:
+                type: string
+                example: "u2asx3sUOp83"
+              joinedAt:
+                type: string
+                format: date-time
+                example: "2025-10-21T02:31:21.000Z"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time

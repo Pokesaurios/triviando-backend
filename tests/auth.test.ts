@@ -1,35 +1,80 @@
 import request from "supertest";
-import app from "../src/app";
+import express from "express";
 import mongoose from "mongoose";
+import { register, login } from "../src/controllers/auth.controller";
+import User from "../src/models/user.model";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
-beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_URI!);
-});
+jest.mock("../src/models/user.model");
+jest.mock("bcryptjs");
+jest.mock("jsonwebtoken");
 
-afterAll(async () => {
-  await mongoose.connection.close();
-});
+const app = express();
+app.use(express.json());
+app.post("/api/v1/auth/register", register);
+app.post("/api/v1/auth/login", login);
 
-describe("Auth Endpoints", () => {
-  const user = { name: "Test", email: "test@example.com", password: "Test123!" };
+describe("🧩 Auth Endpoints (mockeados)", () => {
+  const mockUser = {
+    _id: new mongoose.Types.ObjectId(),
+    name: "Test",
+    email: "test@example.com",
+    password: "hashedPassword",
+  };
 
-  it("should register a user", async () => {
-    const res = await request(app).post("/api/v1/auth/register").send(user);
-    expect(res.statusCode).toBe(201);
-    expect(res.body.user.email).toBe(user.email);
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it("should prevent duplicate email registration", async () => {
-    const res = await request(app).post("/api/v1/auth/register").send(user);
-    expect(res.statusCode).toBe(400);
+  it("✅ should register a new user", async () => {
+    (User.findOne as jest.Mock).mockResolvedValue(null);
+    (bcrypt.hash as jest.Mock).mockResolvedValue("hashedPassword");
+    (User.create as jest.Mock).mockResolvedValue(mockUser);
+
+    const res = await request(app)
+      .post("/api/v1/auth/register")
+      .send({ name: "Test", email: "test@example.com", password: "Test123!" });
+
+    expect(res.status).toBe(201);
+    expect(res.body.user.email).toBe("test@example.com");
   });
 
-  it("should login successfully", async () => {
-    const res = await request(app).post("/api/v1/auth/login").send({
-      email: user.email,
-      password: user.password,
-    });
-    expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty("token");
+  it("🚫 should prevent duplicate email registration", async () => {
+    (User.findOne as jest.Mock).mockResolvedValue(mockUser);
+
+    const res = await request(app)
+      .post("/api/v1/auth/register")
+      .send({ name: "Test", email: "test@example.com", password: "Test123!" });
+
+    expect(res.status).toBe(400);
+    // ✅ Ajuste al texto real de tu backend
+    expect(res.body.message).toMatch(/email already registered/i);
+  });
+
+  it("🔐 should login successfully", async () => {
+    (User.findOne as jest.Mock).mockResolvedValue(mockUser);
+    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+    (jwt.sign as jest.Mock).mockReturnValue("fake-jwt-token");
+
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "test@example.com", password: "Test123!" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty("token", "fake-jwt-token");
+  });
+
+  it("❌ should fail login with wrong password", async () => {
+    (User.findOne as jest.Mock).mockResolvedValue(mockUser);
+    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+    const res = await request(app)
+      .post("/api/v1/auth/login")
+      .send({ email: "test@example.com", password: "wrongPass" });
+
+    expect(res.status).toBe(400);
+    // ✅ Ajuste al texto real de tu backend
+    expect(res.body.message).toMatch(/invalid credentials/i);
   });
 });

@@ -11,6 +11,11 @@ export const generateTrivia = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: "Debes enviar un tema válido." });
     }
 
+    if (!quantity || quantity < 5 || quantity > 20) {
+      return res.status(400).json({ message: "Cantidad de preguntas inválida (rango 5–20)." });
+    }
+
+
     const questions = await generateQuestions(topic, quantity);
 
     const trivia = new Trivia({
