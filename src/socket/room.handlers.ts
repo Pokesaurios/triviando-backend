@@ -6,35 +6,29 @@ import { generateQuestions } from "../services/aiGenerator.service";
 import { addChatMessage, getChatHistory } from "../utils/redisChat";
 import redis from "../config/redis";
 
-const ROOM_CACHE_TTL = 120; // segundos
+const ROOM_CACHE_TTL = 120;
 
 export function registerRoomHandlers(io: Server, socket: Socket) {
   let currentRoom: string | null = null;
 
-  // ───── CREAR SALA + TRIVIA ─────
   socket.on("room:create", async ({ topic, maxPlayers = 4, quantity = 5 }, ack) => {
     try {
       const user = socket.data.user;
       if (!topic?.trim()) return ack?.({ ok: false, message: "Topic required" });
 
-      // 1️⃣ Crear trivia
       const questions = await generateQuestions(topic, quantity);
       const trivia = await new Trivia({ topic, questions, creator: user.id }).save();
 
-      // 2️⃣ Generar código único de sala
       const code = await generateUniqueRoomCode();
 
-      // 3️⃣ Obtener nombre del usuario
       const userDoc = await User.findById(user.id).select("name").lean();
       const player = { userId: user.id, name: userDoc?.name || "Anonymous", joinedAt: new Date() };
 
-      // 4️⃣ Crear sala
       const room = await new Room({ code, hostId: user.id, triviaId: trivia._id, maxPlayers, players: [player] }).save();
 
       socket.join(code);
       currentRoom = code;
 
-      // 5️⃣ Guardar estado en Redis
       await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify({
         code,
         status: room.status,
@@ -43,7 +37,6 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         hostId: room.hostId,
       }));
 
-      // 6️⃣ Responder al host
       ack?.({
         ok: true,
         room: {
@@ -57,7 +50,6 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         },
       });
 
-      // 7️⃣ Broadcast
       io.to(code).emit("room:update", { event: "roomCreated", code, roomId: room._id });
 
     } catch (err: any) {
@@ -66,12 +58,10 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     }
   });
 
-  // ───── UNIRSE A SALA (ATÓMICO) ─────
   socket.on("room:join", async ({ code }, ack) => {
     try {
       const user = socket.data.user;
 
-      // Añadir jugador atómicamente y verificar maxPlayers
       const room = await Room.findOneAndUpdate(
         { code, "players.userId": { $ne: user.id }, $expr: { $lt: [{ $size: "$players" }, "$maxPlayers"] } },
         { $push: { players: { userId: user.id, name: user.name, joinedAt: new Date() } } },
@@ -83,10 +73,8 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       socket.join(code);
       currentRoom = code;
 
-      // Obtener historial de chat
       const chatHistory = await getChatHistory(code);
 
-      // Actualizar cache Redis
       await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify({
         code,
         status: room.status,
@@ -95,7 +83,6 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         hostId: room.hostId,
       }));
 
-      // Notificar a todos en la sala
       io.to(code).emit("room:update", {
         event: "playerJoined",
         player: { id: user.id, name: user.name },
@@ -110,7 +97,6 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     }
   });
 
-  // ───── CHAT ─────
   socket.on("room:chat", async ({ code, message }, ack) => {
     try {
       if (!message?.trim()) return ack?.({ ok: false, message: "Message required" });
@@ -129,7 +115,6 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     }
   });
 
-  // ───── RECONEXIÓN ─────
   socket.on("room:reconnect", async ({ code }, ack) => {
     try {
       if (!code) return ack?.({ ok: false, message: "Room code required" });
@@ -150,12 +135,10 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     }
   });
 
-  // ───── DESCONECTAR ─────
   socket.on("disconnect", async () => {
     if (!currentRoom) return;
     const user = socket.data.user;
 
-    // Notificar a la sala
     io.to(currentRoom).emit("room:update", { event: "playerLeft", userId: user.id });
     console.log(`🔴 ${user.name} left ${currentRoom}`);
   });

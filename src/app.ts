@@ -7,7 +7,6 @@ import triviaRoutes from "./routes/trivia.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import { setupSwagger } from "./config/swagger";
 import roomRoutes from "./routes/room.routes";
-import userRoutes from "./routes/user.routes";
 
 dotenv.config({ path: ".env" });
 
@@ -25,7 +24,6 @@ app.get("/", (_, res) => res.send("✅ TriviAndo API is running"));
 
 // Routes
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/trivia", triviaRoutes);
 app.use("/api/v1/rooms", roomRoutes);
 
