@@ -1,0 +1,373 @@
+openapi: 3.1.0
+info:
+  title: TriviAndo API
+  version: 1.0.0
+  description: >
+    API del proyecto **TrivIAndo**, desarrollada para la materia *Arquitectura de Software (ARSW)*.  
+    Permite registro de usuarios, autenticación segura y generación automática de trivias mediante IA.  
+    También incluye manejo de salas multijugador con caché en Redis.
+  contact:
+    name: Pokesaurios
+    email: pokesaurios@triviando.com
+
+servers:
+  - url: http://localhost:4000/api
+    description: Servidor local de desarrollo
+
+tags:
+  - name: Autenticación
+    description: Endpoints de registro e inicio de sesión.
+  - name: Trivias
+    description: Generación y gestión de trivias con IA.
+  - name: Salas
+    description: Creación y administración de salas multijugador.
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Autenticación
+      summary: Registro de usuario
+      description: Registra un nuevo jugador en el sistema.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  example: Juan Pérez
+                email:
+                  type: string
+                  example: juanperez@email.com
+                password:
+                  type: string
+                  example: Password123!
+      responses:
+        "201":
+          description: Usuario registrado correctamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Registration successful
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 671e8a12c49dba0012d87aa4
+                      name:
+                        type: string
+                        example: Juan Pérez
+                      email:
+                        type: string
+                        example: juanperez@email.com
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        "400":
+          description: Correo ya registrado o datos inválidos.
+
+  /auth/login:
+    post:
+      tags:
+        - Autenticación
+      summary: Inicio de sesión
+      description: Inicia sesión con correo y contraseña válidos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  example: juanperez@email.com
+                password:
+                  type: string
+                  example: Password123!
+      responses:
+        "200":
+          description: Sesión iniciada correctamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Successful login
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: 671e8a12c49dba0012d87aa4
+                      name:
+                        type: string
+                        example: Juan Pérez
+                      email:
+                        type: string
+                        example: juanperez@email.com
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        "400":
+          description: Credenciales incorrectas.
+
+  /trivia/generate:
+    post:
+      tags:
+        - Trivias
+      summary: Generar trivia automática con IA
+      description: Genera una trivia basada en un tema usando inteligencia artificial (Gemini).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - topic
+                - quantity
+              properties:
+                topic:
+                  type: string
+                  example: Historia de Colombia
+                quantity:
+                  type: integer
+                  minimum: 5
+                  maximum: 20
+                  example: 6
+      responses:
+        "201":
+          description: Trivia generada exitosamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Trivia generada exitosamente 🎉
+                  triviaId:
+                    type: string
+                    example: 671e8a12c49dba0012d87aa4
+                  totalQuestions:
+                    type: integer
+                    example: 6
+                  preview:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        question:
+                          type: string
+                          example: ¿Quién fue el libertador de Colombia?
+                        options:
+                          type: array
+                          items:
+                            type: string
+                          example:
+                            - Simón Bolívar
+                            - Santander
+                            - Nariño
+                            - Sucre
+                        correctAnswer:
+                          type: string
+                          example: Simón Bolívar
+                        difficulty:
+                          type: string
+                          example: easy
+        "400":
+          description: Error de validación (tema o cantidad inválida).
+        "500":
+          description: Error interno o fallo de IA.
+
+  /rooms:
+    post:
+      tags:
+        - Salas
+      summary: Crear una nueva sala
+      description: Crea una sala multijugador asociada a una trivia y devuelve su código único.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic:
+                  type: string
+                  example: Cultura general
+                maxPlayers:
+                  type: integer
+                  example: 4
+                quantity:
+                  type: integer
+                  example: 6
+      responses:
+        "201":
+          description: Sala creada exitosamente.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Sala creada 🎉
+                  code:
+                    type: string
+                    example: X4BZ7Q
+                  triviaId:
+                    type: string
+                    example: 671e8a12c49dba0012d87aa4
+                  maxPlayers:
+                    type: integer
+                    example: 4
+                  host:
+                    type: string
+                    example: Juan Pérez
+        "401":
+          description: Usuario no autenticado.
+        "500":
+          description: Error al crear la sala.
+
+  /rooms/join:
+    post:
+      tags:
+        - Salas
+      summary: Unirse a una sala existente
+      description: Permite a un usuario autenticado unirse a una sala ingresando su código.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+              properties:
+                code:
+                  type: string
+                  example: X4BZ7Q
+      responses:
+        "200":
+          description: Unión exitosa a la sala.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Joined room successfully
+                  room:
+                    $ref: "#/components/schemas/Room"
+        "400":
+          description: El usuario ya está en la sala o código inválido.
+        "404":
+          description: Sala no encontrada o llena.
+
+  /rooms/{code}:
+    get:
+      tags:
+        - Salas
+      summary: Obtener información de una sala
+      description: Devuelve los detalles de una sala por su código, incluyendo jugadores conectados.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            example: X4BZ7Q
+      responses:
+        "200":
+          description: Información de la sala.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                    example: cache
+                  room:
+                    $ref: "#/components/schemas/Room"
+        "404":
+          description: Sala no encontrada.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Room:
+      type: object
+      properties:
+        code:
+          type: string
+          example: X4BZ7Q
+        hostId:
+          type: string
+          example: 671f2939b95dbe0014e9e0ff
+        triviaId:
+          type: string
+          example: 671e8a12c49dba0012d87aa4
+        status:
+          type: string
+          enum: [waiting, in-game, finished]
+          example: waiting
+        maxPlayers:
+          type: integer
+          example: 4
+        players:
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                type: string
+                example: 671f2939b95dbe0014e9e0ff
+              name:
+                type: string
+                example: Juan Pérez
+              joinedAt:
+                type: string
+                format: date-time
+                example: 2025-10-21T02:31:21.000Z
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-10-21T02:31:21.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2025-10-21T02:32:05.000Z
