@@ -23,7 +23,7 @@ const questionSchema = new Schema<Question>({
 const triviaSchema = new Schema<TriviaDocument>(
   {
     topic: { type: String, required: true },
-    questions: [questionSchema],
+    questions: { type: [questionSchema], required: true },
     creator: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true }
