@@ -8,8 +8,8 @@
     "build": "tsc && copyfiles -u 2 src/docs/**/* dist/docs",
     "start": "node dist/server.js",
       "test": "jest --detectOpenHandles --coverage",
-      "lint": "eslint \"src/**/*.{ts,tsx}\"",
-      "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix"
+      "lint": "eslint src --ext .ts,.tsx",
+      "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
