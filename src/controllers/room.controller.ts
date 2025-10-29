@@ -22,8 +22,8 @@ export const createRoom = async (req: Request, res: Response) => {
     if (quantity < 5 || quantity > 20) {
       return res.status(400).json({ message: "Cantidad de preguntas inválida (5 a 20)." });
     }
-    if (maxPlayers < 2 || maxPlayers > 10) {
-      return res.status(400).json({ message: "Número de jugadores inválido (2 a 10)." });
+    if (maxPlayers < 2 || maxPlayers > 20) {
+      return res.status(400).json({ message: "Número de jugadores inválido (2 a 20)." });
     }
 
     const questions = await generateQuestions(topic, quantity);

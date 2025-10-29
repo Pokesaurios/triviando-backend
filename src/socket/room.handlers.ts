@@ -5,7 +5,6 @@ import User from "../models/user.model";
 import { generateQuestions } from "../services/aiGenerator.service";
 import { addChatMessage, getChatHistory } from "../utils/redisChat";
 import redis from "../config/redis";
-// mongoose Types not used in this file
 import { 
   initGameState, 
   getGameState, 
@@ -35,7 +34,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       if (!topic?.trim()) return ack?.({ ok: false, message: "Topic required" });
 
       if (quantity < 5 || quantity > 20) return ack?.({ ok: false, message: "Quantity 5-20 required" });
-      if (maxPlayers < 2 || maxPlayers > 10) return ack?.({ ok: false, message: "maxPlayers 2-10 required" });
+      if (maxPlayers < 2 || maxPlayers > 20) return ack?.({ ok: false, message: "maxPlayers 2-20 required" });
 
       // create trivia
       const questions = await generateQuestions(topic, quantity);
@@ -241,7 +240,9 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     // increment roundSequence to avoid stale events
     state.roundSequence = (state.roundSequence || 0) + 1;
     state.questionReadEndsAt = Date.now() + readMs;
-    await saveGameState(code, state);
+  await saveGameState(code, state);
+  // Emit full game state so clients sync immediately
+  ioInstance.to(code).emit('game:update', state);
 
     ioInstance.to(code).emit("round:showQuestion", {
       roundSequence: state.roundSequence,
@@ -278,9 +279,11 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       scores: state.scores,
     });
 
-    state.blocked = {};
-    state.currentQuestionIndex += 1;
-    await saveGameState(code, state);
+  state.blocked = {};
+  state.currentQuestionIndex += 1;
+  await saveGameState(code, state);
+  // Inform clients of the updated full game state
+  ioInstance.to(code).emit('game:update', state);
 
     // next round or end (reserve last question as tie-break)
     setTimeout(async () => {
@@ -322,6 +325,8 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         state.blocked[p.userId] = p.userId !== user.id;
       });
       await saveGameState(code, state);
+      // Emit full game state so clients update blocked/scores etc.
+      io.to(code).emit('game:update', state);
 
       io.to(code).emit("round:playerWonButton", {
         roundSequence,
@@ -336,8 +341,10 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
 
       // --- 🔧 NUEVA LÓGICA DE SINCRONIZACIÓN DE TIEMPO ---
       const now = Date.now();
-      state.answerWindowEndsAt = now + ANSWER_TIMEOUT_MS;
-      await saveGameState(code, state);
+  state.answerWindowEndsAt = now + ANSWER_TIMEOUT_MS;
+  await saveGameState(code, state);
+  // Emit full game state so clients update answer window info
+  io.to(code).emit('game:update', state);
 
       // Timer del servidor (timeout de respuesta)
       const answerTimeoutKey = `${code}:answerTimeout:${state.roundSequence}`;
@@ -392,8 +399,9 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    // 🔔 Tiempo efectivamente expirado
-    state.blocked[userId] = true;
+    // 🔔 Tiempo efectivamente expirado -> bloquear al que falló y desbloquear al resto
+    state.blocked = {};
+    state.players.forEach(p => { state.blocked[p.userId] = p.userId === userId; });
     await saveGameState(code, state);
 
     ioInstance.to(code).emit("round:result", {
@@ -401,7 +409,11 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       playerId: userId,
       correct: false,
       message: "⏰ Se acabó el tiempo para responder",
+      scores: state.scores,
     });
+
+    // Emit full game state so clients update blocked/scores etc.
+    ioInstance.to(code).emit('game:update', state);
 
     await resetFirstPress(code);
 
@@ -465,10 +477,12 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
           scores: state.scores,
         });
 
-        // reset blocked for next question
-        state.blocked = {};
-        state.currentQuestionIndex += 1;
-        await saveGameState(code, state);
+  // reset blocked for next question
+  state.blocked = {};
+  state.currentQuestionIndex += 1;
+  await saveGameState(code, state);
+  // Emit state so all clients see the updated scores / blocked / index
+  io.to(code).emit('game:update', state);
 
         // schedule next round or end (reserve last question as tie-break)
         const triviaDoc = await Trivia.findById(state.triviaId).lean();
@@ -479,17 +493,20 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
         }
         return ack?.({ ok: true, correct: true });
       } else {
-        // incorrect -> block this user, reopen button for others
-        state.blocked[user.id] = true;
-        await saveGameState(code, state);
+  // incorrect -> block this user, unlock the rest and reopen button for others
+  state.blocked = {};
+  state.players.forEach(p => { state.blocked[p.userId] = p.userId === user.id; });
+  await saveGameState(code, state);
 
-        io.to(code).emit("round:result", { roundSequence, playerId: user.id, correct: false, message: "Incorrect answer" });
+  // broadcast result and updated state
+  io.to(code).emit("round:result", { roundSequence, playerId: user.id, correct: false, message: "Incorrect answer", scores: state.scores });
+  io.to(code).emit('game:update', state);
 
-        // remove firstPress and reopen button for others
-        await resetFirstPress(code);
-        setTimeout(() => startRoundOpenButtonAgain(code, io, roundSequence), 800);
+  // remove firstPress and reopen button for others
+  await resetFirstPress(code);
+  setTimeout(() => startRoundOpenButtonAgain(code, io, roundSequence), 800);
 
-        return ack?.({ ok: true, correct: false });
+  return ack?.({ ok: true, correct: false });
       }
     } catch (err:any) {
       console.error("round:answer", err);
