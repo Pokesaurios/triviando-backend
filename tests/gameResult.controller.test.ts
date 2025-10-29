@@ -42,7 +42,7 @@ describe("GameResult Controller (unit tests)", () => {
   // getGameResults
   // -----------------------
   describe("getGameResults", () => {
-    it("debe devolver una lista de resultados", async () => {
+    it("should return a list of results", async () => {
       // Encadena los mocks: find().sort().limit().populate()
       const mockSort = jest.fn().mockReturnThis();
       const mockLimit = jest.fn().mockReturnThis();
