@@ -66,7 +66,7 @@ describe("GameResult Controller (unit tests)", () => {
       expect(res.status).not.toHaveBeenCalledWith(500);
     });
 
-    it("debe manejar errores del modelo", async () => {
+    it("should handle model errors", async () => {
       (GameResult.find as any) = jest.fn(() => ({
         sort: () => ({
           limit: () => ({
