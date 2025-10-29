@@ -1,10 +1,6 @@
 # TrivIAndo — Backend
 
-[![CI](https://github.com/Pokesaurios/triviando-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Pokesaurios/triviando-backend/actions/workflows/ci.yml) [![Coverage](https://codecov.io/gh/Pokesaurios/triviando-backend/branch/main/graph/badge.svg)](https://codecov.io/gh/Pokesaurios/triviando-backend)
-
 Backend del servidor de TrivIAndo: una aplicación en TypeScript que expone una API REST y WebSockets (Socket.IO) para jugar trivias en tiempo real, almacenar resultados y aprovechar generación de contenido con AI.
-
-> Nota: los badges apuntan a GitHub Actions (workflow: `.github/workflows/ci.yml`) y Codecov. Aparecerán como activos una vez que configures el workflow de CI y el reporte de cobertura (Codecov) en el repositorio.
 
 ## Contenido
 
@@ -50,7 +46,7 @@ También contiene integración con servicios de generación de contenidos (paque
 
 2. Instala dependencias
 
-```powershell
+```
 npm install
 ```
 
@@ -176,17 +172,3 @@ Si quieres contribuir:
 - 500 al arrancar: revisa `MONGO_URI` y que Mongo esté alcanzable.
 - Problemas de sockets en producción: configura `REDIS_URL` y habilita el adapter para Socket.IO.
 - Tests que fallan por puertos en uso: verifica que ninguna instancia del servidor quede en segundo plano.
-
-## Licencia y contacto
-
-Incluye licencia en el repo si corresponde (p. ej. MIT). Para preguntas o soporte, abre un issue o contacta al equipo responsable del repo.
-
----
-
-Si querés, puedo:
-
-- Añadir badges al inicio del README (build, coverage, npm)
-- Crear un `Dockerfile` y `docker-compose.yml` para desarrollo
-- Añadir un ejemplo de `.env.example` y un pequeño script de `Makefile`/PowerShell para inicialización rápida
-
-Dime qué preferís y lo preparo.
