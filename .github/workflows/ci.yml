@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -40,5 +43,9 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: coverage/lcov.info
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          # don't fail the whole CI if Codecov upload has an issue (e.g. token misconfigured)
+          fail_ci_if_error: false
+        env:
+          # Set CODECOV_TOKEN only if you configured it in repository secrets.
+          # For public repos Codecov may accept uploads without a token.
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
