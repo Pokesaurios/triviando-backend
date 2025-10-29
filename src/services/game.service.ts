@@ -2,6 +2,7 @@ import redis from "../config/redis";
 import { Trivia } from "../models/trivia.model";
 import { Room } from "../models/room.model";
 import { GameState } from "../types/game.types";
+import { setNxPx } from "../utils/redisHelpers";
 
 const GAME_PREFIX = (code: string) => `room:${code}:game`;
 const FIRST_PRESS_KEY = (code: string) => `room:${code}:firstPress`;
@@ -45,9 +46,28 @@ export async function getGameState(code: string): Promise<GameState | null> {
   try {
     return JSON.parse(raw) as GameState;
   } catch (e) {
-    console.error(`[game.service] Corrupted game state in redis for ${code}:`, e);
-    // clear corrupted state to avoid loops (optional)
-    await redis.del(GAME_PREFIX(code));
+    // Enhanced logging for debugging/monitoring: include truncated raw payload, length and increment a corruption counter in redis
+    try {
+      const snippet = raw.length > 200 ? raw.slice(0, 200) + '...[truncated]' : raw;
+      console.error(`[game.service] Corrupted game state in redis for ${code}. raw.len=${raw.length} snippet=${snippet}`, e);
+      // Increment a counter to surface repeated corruptions and set an expiry for the metric
+      try {
+        await redis.incr(`${GAME_PREFIX(code)}:corrupt_count`);
+        await redis.expire(`${GAME_PREFIX(code)}:corrupt_count`, 60 * 60 * 24); // 1 day
+      } catch (metricErr) {
+        console.warn(`[game.service] Failed to increment corrupt_count for ${code}:`, metricErr);
+      }
+    } catch (logErr) {
+      console.error(`[game.service] Error while logging corrupted game state for ${code}:`, logErr);
+    }
+
+    // clear corrupted state to avoid loops
+    try {
+      await redis.del(GAME_PREFIX(code));
+    } catch (delErr) {
+      console.error(`[game.service] Failed to delete corrupted game state for ${code}:`, delErr);
+    }
+
     return null;
   }
 }
@@ -85,7 +105,7 @@ export function clearTimer(key: string) {
 export async function attemptFirstPress(code: string, userId: string, pressWindowMs = PRESS_WINDOW_MS) {
   const key = FIRST_PRESS_KEY(code);
   // returns "OK" when set, null if not set
-  const res = await (redis as any).set(key, userId, "NX", "PX", pressWindowMs); //Revisar
+  const res = await setNxPx(key, userId, pressWindowMs);
   return res === "OK";
 }
 
