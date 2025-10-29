@@ -1,4 +1,4 @@
-// tests/gameResult.controller.unit.test.ts
+// tests/gameResult.controller.test.ts
 import { getGameResults, getGameResultByRoom } from "../src/controllers/gameResult.controller";
 import { GameResult } from "../src/models/gameResult.model";
 
