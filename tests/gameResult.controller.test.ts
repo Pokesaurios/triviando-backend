@@ -2,7 +2,7 @@
 import { getGameResults, getGameResultByRoom } from "../src/controllers/gameResult.controller";
 import { GameResult } from "../src/models/gameResult.model";
 
-jest.mock("../src/models/gameResult.model"); // Simula el modelo de Mongoose
+jest.mock("../src/models/gameResult.model"); // Mocks the Mongoose model
 
 describe("GameResult Controller (unit tests)", () => {
   const mockResults = [
