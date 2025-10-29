@@ -13,6 +13,7 @@ export const MIN_BUTTON_DELAY_MS = 1000;
 export const MAX_BUTTON_DELAY_MS = 5000;
 export const PRESS_WINDOW_MS = 10000;
 export const ANSWER_TIMEOUT_MS = 15000;
+export const MAX_LOG_SNIPPET_LENGTH = 200;
 
 export async function initGameState(
   code: string,
@@ -48,7 +49,7 @@ export async function getGameState(code: string): Promise<GameState | null> {
   } catch (e) {
     // Enhanced logging for debugging/monitoring: include truncated raw payload, length and increment a corruption counter in redis
     try {
-      const snippet = raw.length > 200 ? raw.slice(0, 200) + '...[truncated]' : raw;
+      const snippet = raw.length > MAX_LOG_SNIPPET_LENGTH ? raw.slice(0, MAX_LOG_SNIPPET_LENGTH) + '...[truncated]' : raw;
       console.error(`[game.service] Corrupted game state in redis for ${code}. raw.len=${raw.length} snippet=${snippet}`, e);
       // Increment a counter to surface repeated corruptions and set an expiry for the metric
       try {

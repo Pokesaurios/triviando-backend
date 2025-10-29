@@ -19,4 +19,3 @@ If you plan to run multiple instances (horizontal scaling), these in-memory time
 - Keep a single dedicated "leader" instance responsible for timers (requires leader election).
 
 Add a short comment in the code or infrastructure docs if you intend to scale so future maintainers are aware of this limitation.
-# triviando-backend
