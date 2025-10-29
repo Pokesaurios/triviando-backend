@@ -89,7 +89,7 @@ describe("GameResult Controller (unit tests)", () => {
   // getGameResultByRoom
   // -----------------------
   describe("getGameResultByRoom", () => {
-    it("debe devolver un resultado de partida específico", async () => {
+    it("should return a specific game result", async () => {
       const mockPopulate = jest.fn().mockResolvedValue(mockResults[0]);
       (GameResult.findOne as any) = jest.fn(() => ({
         populate: mockPopulate,
