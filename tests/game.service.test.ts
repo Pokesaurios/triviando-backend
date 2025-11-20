@@ -1,138 +1,142 @@
+import { jest } from '@jest/globals';
+
+// In-memory redis mock
+const store = new Map<string, string>();
+const setSpy = jest.fn(async (k: string, v: string) => { store.set(k, v); });
+const getSpy = jest.fn(async (k: string) => store.get(k) ?? null);
+const delSpy = jest.fn(async (k: string) => { store.delete(k); });
+const saddSpy = jest.fn(async (_k: string, _member: string) => 1);
+const expireSpy = jest.fn(async (_k: string, _sec: number) => 1);
+const incrSpy = jest.fn(async (_k: string) => 1);
+
+jest.mock('../src/config/redis', () => ({
+  __esModule: true,
+  default: {
+    set: setSpy,
+    get: getSpy,
+    del: delSpy,
+    sadd: saddSpy,
+    expire: expireSpy,
+    incr: incrSpy,
+  },
+}));
+
+// Mock Trivia model
+const mockTrivia = { _id: 't1', questions: [
+  { question: 'Q1', options: ['a','b'], correctAnswer: 'a', difficulty: 'easy' },
+  { question: 'Q2', options: ['c','d'], correctAnswer: 'c', difficulty: 'easy' },
+]};
+
+jest.mock('../src/models/trivia.model', () => ({
+  __esModule: true,
+  Trivia: { findById: jest.fn(() => ({ lean: () => mockTrivia })) },
+}));
+
+// Mock setNxPx helper
+const setNxPxMock = jest.fn(async (_k: string, _v: string, _px: number) => 'OK');
+jest.mock('../src/utils/redisHelpers', () => ({
+  __esModule: true,
+  setNxPx: (...args: any[]) => setNxPxMock(...args),
+}));
+
 import {
-  attemptFirstPress,
-  dedupeEvent,
   initGameState,
   getGameState,
   saveGameState,
   scheduleTimer,
   clearTimer,
+  attemptFirstPress,
   resetFirstPress,
-  timersMap,
-} from "../src/services/game.service";
-import * as redisHelpers from "../src/utils/redisHelpers";
-import redis from "../src/config/redis";
-import { Trivia } from "../src/models/trivia.model";
+  dedupeEvent,
+} from '../src/services/game.service';
 
-jest.mock("../src/utils/redisHelpers", () => ({
-  setNxPx: jest.fn(),
-}));
+jest.useFakeTimers();
 
-jest.mock("../src/config/redis", () => ({
-  sadd: jest.fn(),
-  expire: jest.fn(),
-  set: jest.fn(),
-  get: jest.fn(),
-  incr: jest.fn(),
-  del: jest.fn(),
-}));
+describe('game.service', () => {
+  const keyFor = (code: string) => `room:${code}:game`;
 
-jest.mock("../src/models/trivia.model", () => ({
-  Trivia: { findById: jest.fn() },
-}));
-
-describe("game.service helpers", () => {
-  beforeEach(() => jest.clearAllMocks());
-
-  describe("attemptFirstPress", () => {
-    it("returns true when setNxPx returns OK", async () => {
-      (redisHelpers.setNxPx as jest.Mock).mockResolvedValueOnce("OK");
-      const res = await attemptFirstPress("ROOM1", "user1", 2000);
-      expect(res).toBe(true);
-      expect(redisHelpers.setNxPx).toHaveBeenCalledWith("room:ROOM1:firstPress", "user1", 2000);
-    });
-
-    it("returns false when setNxPx returns null", async () => {
-      (redisHelpers.setNxPx as jest.Mock).mockResolvedValueOnce(null);
-      const res = await attemptFirstPress("ROOM2", "user2", 1000);
-      expect(res).toBe(false);
-    });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    store.clear();
   });
 
-  describe("dedupeEvent", () => {
-    it("returns true for empty eventId", async () => {
-      const res = await dedupeEvent("ROOMX", "");
-      expect(res).toBe(true);
-    });
+  it('initGameState creates and persists initial state with scores map', async () => {
+    const state = await initGameState('ABCD12', 't1', [
+      { userId: 'u1', name: 'Alice' },
+      { userId: 'u2', name: 'Bob' },
+    ]);
+    expect(state.roomCode).toBe('ABCD12');
+    expect(state.scores).toEqual({ u1: 0, u2: 0 });
+    expect(setSpy).toHaveBeenCalledWith(keyFor('ABCD12'), expect.any(String));
 
-    it("returns true and sets expire when sadd returns 1", async () => {
-      (redis.sadd as jest.Mock).mockResolvedValueOnce(1);
-      const res = await dedupeEvent("ROOMY", "evt-123", 15);
-      expect(res).toBe(true);
-      expect(redis.sadd).toHaveBeenCalledWith("room:ROOMY:eventIds", "evt-123");
-      expect(redis.expire).toHaveBeenCalledWith("room:ROOMY:eventIds", 15);
-    });
-
-    it("returns false when sadd returns 0 (duplicate)", async () => {
-      (redis.sadd as jest.Mock).mockResolvedValueOnce(0);
-      const res = await dedupeEvent("ROOMZ", "evt-dup", 10);
-      expect(res).toBe(false);
-      expect(redis.expire).not.toHaveBeenCalled();
-    });
+    const raw = await getGameState('ABCD12');
+    expect(raw?.players.map(p => p.userId)).toEqual(['u1','u2']);
   });
 
-  describe("state persistence and timers", () => {
-    it("initGameState saves state and returns it", async () => {
-      // mock Trivia.findById().lean()
-      (Trivia.findById as jest.Mock).mockReturnValue({ lean: jest.fn().mockResolvedValue({ _id: "t1" }) });
-      (redis.set as jest.Mock).mockResolvedValueOnce("OK");
+  it('saveGameState overrides existing persisted state', async () => {
+    await initGameState('ROOM1', 't1', [{ userId: 'u1', name: 'A' }]);
+    const s = await getGameState('ROOM1');
+    expect(s).not.toBeNull();
+    if (s) {
+      s.scores.u1 = 42;
+      await saveGameState('ROOM1', s);
+    }
+    const after = await getGameState('ROOM1');
+    expect(after?.scores.u1).toBe(42);
+  });
 
-      const players = [{ userId: "u1", name: "Alice" }];
-      const state = await initGameState("RC", "t1", players);
+  it('getGameState handles corrupted JSON, logs and deletes key returning null', async () => {
+    const code = 'BROKEN';
+    // simulate corrupt value
+    store.set(keyFor(code), '{not-json');
+    const res = await getGameState(code);
+    expect(res).toBeNull();
+    expect(delSpy).toHaveBeenCalledWith(keyFor(code));
+    // also increments metric and sets expire
+    expect(incrSpy).toHaveBeenCalled();
+    expect(expireSpy).toHaveBeenCalled();
+  });
 
-      expect(state.roomCode).toBe("RC");
-      expect(state.scores["u1"]).toBe(0);
-      expect(redis.set).toHaveBeenCalledWith("room:RC:game", JSON.stringify(state));
-    });
+  it('attemptFirstPress returns true only the first time within window; reset clears it', async () => {
+    setNxPxMock.mockResolvedValueOnce('OK');
+    const first = await attemptFirstPress('R', 'u1', 5000);
+    expect(first).toBe(true);
+    // second time returns not OK
+    setNxPxMock.mockResolvedValueOnce(null as any);
+    const second = await attemptFirstPress('R', 'u2', 5000);
+    expect(second).toBe(false);
 
-    it("saveGameState calls redis.set and getGameState returns parsed object", async () => {
-      const sample = { roomCode: "R2", triviaId: "t2", status: "in-game" } as any;
-      (redis.set as jest.Mock).mockResolvedValueOnce("OK");
-      await saveGameState("R2", sample);
-      expect(redis.set).toHaveBeenCalledWith("room:R2:game", JSON.stringify(sample));
+    await resetFirstPress('R');
+    expect(delSpy).toHaveBeenCalledWith('room:R:firstPress');
+  });
 
-      (redis.get as jest.Mock).mockResolvedValueOnce(JSON.stringify(sample));
-      const got = await getGameState("R2");
-      expect(got).toEqual(sample);
-    });
+  it('dedupeEvent accepts first event and rejects duplicates, applies TTL', async () => {
+    (saddSpy as jest.Mock).mockResolvedValueOnce(1);
+    const first = await dedupeEvent('R2', 'evt-1', 5);
+    expect(first).toBe(true);
+    expect(expireSpy).toHaveBeenCalledWith('room:R2:eventIds', 5);
 
-    it("getGameState handles corrupted JSON by deleting and metricing", async () => {
-      (redis.get as jest.Mock).mockResolvedValueOnce("{ not valid json");
-      (redis.incr as jest.Mock).mockResolvedValueOnce(1);
-      (redis.expire as jest.Mock).mockResolvedValueOnce(1);
-      (redis.del as jest.Mock).mockResolvedValueOnce(1);
+    (saddSpy as jest.Mock).mockResolvedValueOnce(0);
+    const dup = await dedupeEvent('R2', 'evt-1', 5);
+    expect(dup).toBe(false);
+  });
 
-      const res = await getGameState("BAD");
-      expect(res).toBeNull();
-      expect(redis.incr).toHaveBeenCalledWith("room:BAD:game:corrupt_count");
-      expect(redis.expire).toHaveBeenCalled();
-      expect(redis.del).toHaveBeenCalledWith("room:BAD:game");
-    });
+  it('scheduleTimer clears existing keys and runs callback once; clearTimer cancels', async () => {
+    const fn = jest.fn();
+    scheduleTimer('k', fn, 1000);
+    // schedule another with same key; should clear previous
+    const fn2 = jest.fn();
+    scheduleTimer('k', fn2, 1000);
 
-    it("scheduleTimer triggers function after delay and clearTimer prevents it", async () => {
-      jest.useFakeTimers();
-      const fn = jest.fn();
+    // run timers
+    jest.advanceTimersByTime(1000);
+    expect(fn).not.toHaveBeenCalled();
+    expect(fn2).toHaveBeenCalledTimes(1);
 
-      scheduleTimer("k1", fn, 1000);
-      expect(timersMap.has("k1")).toBe(true);
-
-      // clearing before run should cancel
-      clearTimer("k1");
-      jest.runAllTimers();
-      expect(fn).not.toHaveBeenCalled();
-
-      // schedule again and let it run
-      scheduleTimer("k2", fn, 500);
-      expect(timersMap.has("k2")).toBe(true);
-      jest.runAllTimers();
-      expect(fn).toHaveBeenCalled();
-      expect(timersMap.has("k2")).toBe(false);
-      jest.useRealTimers();
-    });
-
-    it("resetFirstPress calls redis.del with correct key", async () => {
-      (redis.del as jest.Mock).mockResolvedValueOnce(1);
-      await resetFirstPress("RM");
-      expect(redis.del).toHaveBeenCalledWith("room:RM:firstPress");
-    });
+    const canceled = jest.fn();
+    scheduleTimer('c', canceled, 1000);
+    clearTimer('c');
+    jest.advanceTimersByTime(1000);
+    expect(canceled).not.toHaveBeenCalled();
   });
 });

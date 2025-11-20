@@ -33,7 +33,7 @@ export async function initGameState(
     roundSequence: 0,
     scores: initialScores,
     blocked: {},
-    players: players.map((p) => ({ ...p, score: 0 })),
+    players: players.map((p) => ({ userId: p.userId, name: p.name })),
   };
 
   await redis.set(GAME_PREFIX(code), JSON.stringify(state));
@@ -74,6 +74,10 @@ export async function getGameState(code: string): Promise<GameState | null> {
 
 export async function saveGameState(code: string, state: GameState) {
   await redis.set(GAME_PREFIX(code), JSON.stringify(state));
+}
+
+export function clearAnswerWindow(state: GameState) {
+  state.answerWindowEndsAt = undefined;
 }
 
 /* In-memory timers for MVP (single instance)

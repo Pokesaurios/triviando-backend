@@ -18,7 +18,7 @@ Backend del servidor de TrivIAndo: una aplicación en TypeScript que expone una 
 
 ## Visión general
 
-El backend gestiona salas, preguntas, resultados y la lógica de juego en tiempo real. Utiliza Socket.IO para la comunicación en tiempo real entre clientes y servidor, MongoDB para persistencia y Redis para funcionalidades de cache/pubsub cuando aplica.
+El backend gestiona salas, preguntas, resultados y la lógica de juego en tiempo real. Utiliza Socket.IO para la comunicación en tiempo real entre clientes y servidor, MongoDB para persistencia y Redis para funcionalidades de caché/pubsub cuando aplica.
 
 También contiene integración con servicios de generación de contenidos (paquete `@google/generative-ai` está presente) para características AI (p. ej. generación de preguntas o descripciones).
 
@@ -50,7 +50,7 @@ También contiene integración con servicios de generación de contenidos (paque
 npm install
 ```
 
-3. Crea un archivo `.env` en la raíz con las variables de entorno necesarias (ver sección siguiente).
+1. Crea un archivo `.env` en la raíz con las variables de entorno necesarias (ver sección siguiente).
 
 ## Variables de entorno (ejemplos)
 
@@ -147,7 +147,7 @@ El reporte de cobertura se genera en la carpeta `coverage/` y también hay un re
 
 Edge cases importantes:
 
-- Clientes desconectados durante una partida (reconexión y re-sincronización de estado).
+- Clientes desconectados durante una partida (reconexión y resincronización de estado).
 - Timers y race conditions en setups multi-instancia.
 - Latencias de Redis/Mongo que afecten al flujo en tiempo real.
 
@@ -172,3 +172,86 @@ Si quieres contribuir:
 - 500 al arrancar: revisa `MONGO_URI` y que Mongo esté alcanzable.
 - Problemas de sockets en producción: configura `REDIS_URL` y habilita el adapter para Socket.IO.
 - Tests que fallan por puertos en uso: verifica que ninguna instancia del servidor quede en segundo plano.
+
+## Contrato de eventos de Socket.IO (detallado)
+
+Esta sección documenta los eventos y el estado intercambiado por los clientes del juego. Todos los identificadores de jugadores se exponen como `userId` (no `id`). Los puntajes se leen del mapa `scores` en el estado de juego; los objetos `players[]` ya no incluyen `score` para evitar duplicación.
+
+- room:create (client → server)
+  - Payload: `{ topic: string, maxPlayers?: number (2-20), quantity?: number (5-20) }`
+  - Ack OK: `{ ok: true, room: { code, roomId, triviaId, maxPlayers, host: string, players: { userId, name, joinedAt }[], chatHistory: [] } }`
+  - Broadcast: `room:update` `{ event: "roomCreated", code, roomId }`
+
+- room:join (client → server)
+  - Payload: `{ code: string }`
+  - Ack OK: `{ ok: true, room: { code, players: { userId, name, joinedAt }[], chatHistory } }`
+  - Broadcast: `room:update` `{ event: "playerJoined", player: { userId, name }, players: [...] }`
+  - Errores comunes: `{ ok: false, message: "Room not found" | "Room full or not found" }`
+
+- room:chat (client → server)
+  - Payload: `{ code: string, message: string }` (máximo 400 caracteres)
+  - Broadcast: `room:chat:new` `{ userId, user: name, message, timestamp }`
+
+- room:reconnect (client → server)
+  - Payload: `{ code: string }`
+  - Ack OK: `{ ok: true, room: { code, players: { userId, name, joinedAt }[], chatHistory, gameState } }`
+
+- game:start (host → server)
+  - Payload: `{ code: string }`
+  - Broadcast: `game:started` `{ ok: true, totalQuestions: number }`
+    - Nota: `totalQuestions = preguntas_totales - 1` reservando 1 pregunta para posible desempate.
+
+- game:update (server → room)
+  - Emite siempre el estado completo persistido tras cada transición relevante.
+  - Estado (`GameState`):
+    - `roomCode: string`
+    - `triviaId: string`
+    - `status: 'waiting' | 'in-game' | 'finished' | 'open' | 'result' | 'reading' | 'answering'`
+    - `currentQuestionIndex: number`
+    - `roundSequence: number`
+    - `scores: Record<userId, number>`
+    - `blocked: Record<userId, boolean>`
+    - `players: { userId: string, name: string }[]`
+    - `questionReadEndsAt?: number` — timestamp UNIX ms del fin de lectura
+    - `answerWindowEndsAt?: number` — timestamp UNIX ms del fin de la ventana del ganador
+    - `tieBreakerPlayed?: boolean`
+
+- round:showQuestion (server → room)
+  - `{ roundSequence, questionText, readMs }`
+
+- round:openButton (server → room)
+  - `{ roundSequence, pressWindowMs }`
+
+- round:buttonPress (client → server)
+  - Payload: `{ code: string, roundSequence: number, eventId?: string }`
+  - Ack OK: `{ ok: true, message: "You pressed first" }`
+  - Ack errores:
+    - `{ ok: false, message: "Stale round" }` si no coincide `roundSequence`
+    - `{ ok: false, message: "Estás bloqueado para esta pregunta" }` si el jugador está bloqueado
+    - `{ ok: false, message: "Otro jugador ganó el botón" }` si ya hubo otro primero
+
+- round:playerWonButton (server → room)
+  - `{ roundSequence, playerId: string, name: string }`
+
+- round:answerRequest (server → ganador)
+  - `{ roundSequence, options: string[], answerTimeoutMs: number, endsAt: number }`
+
+- round:answer (ganador → server)
+  - Payload: `{ code: string, roundSequence: number, selectedIndex: number, eventId?: string }`
+  - Ack, OK:
+    - Correcta: `{ ok: true, correct: true }`
+    - Incorrecta: `{ ok: true, correct: false }`
+  - Ack error si responde otro jugador: `{ ok: false, message: "No eres quien está respondiendo" }`
+
+- round:result (server → room)
+  - Correcta: `{ roundSequence, playerId, correct: true, correctAnswer, scores }`
+  - Incorrecta / timeout / nadie presionó: incluye `correct: false | null`, `message`, y `scores` (y `correctAnswer` si aplica)
+
+- game:ended (server → room)
+  - `{ scores: Record<userId, number>, winner: { userId, name, score } }`
+
+Notas operativas clave
+- Limpieza de ventanas: el servidor limpia `answerWindowEndsAt` al resolver la ronda (correcta/incorrecta/timeout/nadie).
+- Timers: se programan con claves por sala y secuencia de ronda; al ejecutar, se borran del registro.
+- Dedupe/Concurrencia: `eventId` opcional para deduplicar; la primera pulsación se determina con `SETNX PX` en Redis.
+- Reconexión: los timestamps `questionReadEndsAt`/`answerWindowEndsAt` permiten re-sincronizar la UI del cliente al reconectar.

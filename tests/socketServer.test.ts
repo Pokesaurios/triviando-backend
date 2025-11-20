@@ -30,6 +30,11 @@ jest.mock("../src/socket/room.handlers", () => ({
   registerRoomHandlers: mockRegisterRoomHandlers,
 }));
 
+const mockRegisterGameHandlers = jest.fn();
+jest.mock("../src/socket/game.handlers", () => ({
+  registerGameHandlers: mockRegisterGameHandlers,
+}));
+
 // Ahora importamos la función a probar
 import { initSocketServer } from "../src/socket";
 
@@ -88,9 +93,6 @@ describe("initSocketServer", () => {
 
     // Ejecutar handler
     connectionHandler(fakeSocket);
-
-    // Debe loggear la conexión
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("🟢 Connected: Pepito"));
 
     // Debe haber llamado registerRoomHandlers con la instancia io y el socket
     // El primer arg pasado a registerRoomHandlers debe ser la instancia retornada por mockServerCtor

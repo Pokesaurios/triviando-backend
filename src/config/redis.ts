@@ -7,7 +7,7 @@ const redis = new Redis(redisUrl, {
   enableReadyCheck: false,
 });
 
-redis.on("connect", () => console.log("✅ Connected to Redis Cloud"));
+redis.on("connect", () => console.log("🟢 Connected to Redis Cloud"));
 redis.on("error", (err) => console.error("❌ Redis error:", err));
 
 export default redis;

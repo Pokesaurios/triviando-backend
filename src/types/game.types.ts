@@ -1,7 +1,6 @@
-export type PlayerScore = {
+export type PlayerInfo = {
     userId: string;
     name : string;
-    score: number;
     blocked?: boolean;
 }
 
@@ -13,7 +12,7 @@ export interface GameState {
     roundSequence: number;
     scores: Record<string, number>; // userId to score mapping
     blocked: Record<string, boolean>; // userId to blocked status mapping
-    players: PlayerScore[];
+    players: PlayerInfo[];
     questionReadEndsAt?: number; // timestamp
     answerWindowEndsAt?: number; // timestamp
     tieBreakerPlayed?: boolean; // whether the spare tie-break question was used

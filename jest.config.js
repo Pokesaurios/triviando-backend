@@ -16,9 +16,6 @@ module.exports = {
     "!src/routes/**",
     "!src/services/aiGenerator.service.ts",
     "!src/app.ts",
-    // Exclude socket handlers from coverage because they are integration-heavy
-    // and require complex socket/io mocks; cover them with integration tests later.
-    "!src/socket/room.handlers.ts",
   ],
   coverageDirectory: "coverage",
   coverageReporters: ["text", "lcov", "html"],
