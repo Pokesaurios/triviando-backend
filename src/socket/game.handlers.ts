@@ -232,10 +232,13 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
   async function handleNoPresses(code: string, ioInstance: Server, roundSequence: number) {
     const state = await getGameState(code);
-    if (!state || state.roundSequence !== roundSequence) return;
+    if (state?.roundSequence !== roundSequence) return;
+
     const trivia = await Trivia.findById(state.triviaId).lean();
-    if (!trivia || !Array.isArray(trivia.questions)) return;
-    const q = trivia.questions[state.currentQuestionIndex];
+    if (!Array.isArray(trivia?.questions)) return;
+
+    const q = trivia.questions?.[state.currentQuestionIndex];
+    if (!q) return;
 
     ioInstance.to(code).emit("round:result", {
       roundSequence,
@@ -270,7 +273,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     userId: string
   ) {
     const state = await getGameState(code);
-    if (!state || state.roundSequence !== roundSequence) return;
+    if (state?.roundSequence !== roundSequence) return;
 
     const now = Date.now();
     if (state.answerWindowEndsAt && now < state.answerWindowEndsAt) {
@@ -307,7 +310,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
   async function startRoundOpenButtonAgain(code: string, ioInstance: Server, roundSequence: number) {
     const state = await getGameState(code);
-    if (!state || state.roundSequence !== roundSequence) return;
+    if (state?.roundSequence !== roundSequence) return;
 
     const eligible = state.players.filter(p => !state.blocked[p.userId]);
     if (eligible.length === 0) {
