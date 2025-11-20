@@ -339,7 +339,6 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
     const existing = await GameResult.findOne({ roomCode: code });
     if (existing) {
-      console.log(`[endGame] La partida ${code} ya fue persistida`);
       return;
     }
 
@@ -359,7 +358,6 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
       const spareIndex = Array.isArray(triviaDoc?.questions) ? triviaDoc.questions.length - 1 : -1;
       if (tie && spareIndex >= 0 && !state.tieBreakerPlayed) {
-        console.log(`[endGame] Tie detected in ${code}. Scheduling tie-break round at index ${spareIndex}`);
         state.status = "in-game";
         state.tieBreakerPlayed = true;
         state.currentQuestionIndex = spareIndex;
@@ -386,7 +384,6 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         winner,
       });
 
-      console.log(`✅ Partida ${code} finalizada. Ganador: ${winner?.name} (${(winner as any)?.score} pts)`);
     } catch (err) {
       console.error("[endGame] Error al guardar resultado", err);
     }

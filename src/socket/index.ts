@@ -11,7 +11,6 @@ export function initSocketServer(httpServer: any) {
   io.use(socketAuthMiddleware);
 
   io.on("connection", (socket: Socket) => {
-    console.log(`🟢 Connected: ${socket.data.user.name}`);
     registerRoomHandlers(io, socket);
     registerGameHandlers(io, socket);
   });

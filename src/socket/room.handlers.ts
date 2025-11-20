@@ -177,7 +177,6 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
     if (!currentRoom) return;
     const user = socket.data.user;
     io.to(currentRoom).emit("room:update", { event: "playerLeft", userId: user.id });
-    console.log(`🔴 ${user.name} disconnected from ${currentRoom}`);
   });
 
 }
