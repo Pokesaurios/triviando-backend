@@ -8,6 +8,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import { setupSwagger } from "./config/swagger";
 import roomRoutes from "./routes/room.routes";
 import gameResultRoutes from "./routes/gameResult.routes";
+import healthRoutes from "./routes/health.routes";
 
 dotenv.config({ path: ".env" });
 
@@ -20,8 +21,11 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
-// Health check route
+// Simple root health check route
 app.get("/", (_, res) => res.send("✅ TriviAndo API is running"));
+
+// Health check routes (for load balancer)
+app.use("/", healthRoutes);
 
 // Routes
 app.use("/api/v1/auth", authRoutes);
