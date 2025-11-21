@@ -17,6 +17,14 @@ export function initSocketServer(httpServer: any) {
       const pubClient = redis.duplicate();
       const subClient = redis.duplicate();
 
+      // Handle connection errors for duplicated clients
+      pubClient.on("error", (err) => {
+        console.error("❌ Socket.IO Redis pub client error:", err);
+      });
+      subClient.on("error", (err) => {
+        console.error("❌ Socket.IO Redis sub client error:", err);
+      });
+
       // Set up the Redis adapter
       io.adapter(createAdapter(pubClient, subClient));
       console.log("✅ Socket.IO Redis adapter configured for horizontal scaling");
