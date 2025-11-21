@@ -14,6 +14,7 @@
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.1/index.js';
 
 // Métricas personalizadas
 const loginErrors = new Counter('login_errors');
@@ -194,38 +195,4 @@ export function handleSummary(data) {
     'stdout': textSummary(data, { indent: '  ', enableColors: true }),
     'stress-test-summary.json': JSON.stringify(data, null, 2),
   };
-}
-
-function textSummary(data, options) {
-  const indent = options.indent || '';
-  const enableColors = options.enableColors || false;
-  
-  let summary = '\n';
-  summary += `${indent}📊 Resumen del Stress Test\n`;
-  summary += `${indent}${'='.repeat(50)}\n\n`;
-  
-  // Métricas HTTP
-  const httpReqs = data.metrics.http_reqs;
-  const httpReqDuration = data.metrics.http_req_duration;
-  const httpReqFailed = data.metrics.http_req_failed;
-  
-  summary += `${indent}Requests:\n`;
-  summary += `${indent}  Total: ${httpReqs.values.count}\n`;
-  summary += `${indent}  Rate: ${httpReqs.values.rate.toFixed(2)}/s\n\n`;
-  
-  summary += `${indent}Latencia:\n`;
-  summary += `${indent}  Avg: ${httpReqDuration.values.avg.toFixed(2)}ms\n`;
-  summary += `${indent}  Min: ${httpReqDuration.values.min.toFixed(2)}ms\n`;
-  summary += `${indent}  Max: ${httpReqDuration.values.max.toFixed(2)}ms\n`;
-  summary += `${indent}  p(50): ${httpReqDuration.values['p(50)'].toFixed(2)}ms\n`;
-  summary += `${indent}  p(95): ${httpReqDuration.values['p(95)'].toFixed(2)}ms\n`;
-  summary += `${indent}  p(99): ${httpReqDuration.values['p(99)'].toFixed(2)}ms\n\n`;
-  
-  summary += `${indent}Errores:\n`;
-  summary += `${indent}  Failed: ${(httpReqFailed.values.rate * 100).toFixed(2)}%\n`;
-  summary += `${indent}  Passed: ${((1 - httpReqFailed.values.rate) * 100).toFixed(2)}%\n\n`;
-  
-  summary += `${indent}${'='.repeat(50)}\n`;
-  
-  return summary;
 }
