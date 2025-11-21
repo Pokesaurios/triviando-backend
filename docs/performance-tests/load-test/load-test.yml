@@ -1,0 +1,157 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    # Fase 1: Calentamiento - 100 usuarios en 2 minutos
+    - duration: 120
+      arrivalRate: 5
+      name: "Warm up phase"
+    
+    # Fase 2: Incremento gradual - 500 usuarios en 5 minutos
+    - duration: 300
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp up to 500 users"
+    
+    # Fase 3: Carga sostenida - 1000 usuarios durante 5 minutos
+    - duration: 300
+      arrivalRate: 50
+      name: "Sustained load - 1000 users"
+    
+    # Fase 4: Enfriamiento - disminuir a 100 usuarios
+    - duration: 120
+      arrivalRate: 50
+      rampTo: 5
+      name: "Cool down"
+
+  processor: "./scenarios.js"
+  
+  # Variables de entorno para el test
+  variables:
+    testEmail: "loadtest@example.com"
+    testPassword: "password123"
+
+  # Plugins para validaciones y reportes
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Configuración de Engine.io / Socket.IO
+  socketio:
+    transports: ["websocket", "polling"]
+    reconnection: true
+    reconnectionDelay: 500
+
+scenarios:
+  # Escenario 1: Usuario navegando por la API REST
+  - name: "REST API Navigation"
+    weight: 40
+    flow:
+      # Health check
+      - get:
+          url: "/"
+          expect:
+            - statusCode: 200
+      
+      # Login
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+      
+      # Obtener lista de salas
+      - get:
+          url: "/api/v1/rooms"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Pausa para simular usuario leyendo
+      - think: 3
+
+  # Escenario 2: Usuario conectándose por WebSocket
+  - name: "WebSocket Connection"
+    engine: "socketio"
+    weight: 30
+    flow:
+      # Conectar al servidor Socket.IO
+      - emit:
+          channel: "connection"
+      
+      # Unirse a una sala
+      - emit:
+          channel: "joinRoom"
+          data:
+            roomCode: "TEST123"
+            userId: "{{ $randomString() }}"
+      
+      # Esperar eventos del servidor
+      - think: 5
+      
+      # Enviar un mensaje
+      - emit:
+          channel: "chatMessage"
+          data:
+            message: "Hello from load test"
+      
+      # Mantener conexión
+      - think: 10
+      
+      # Desconectar
+      - emit:
+          channel: "disconnect"
+
+  # Escenario 3: Juego completo de trivia
+  - name: "Full Trivia Game"
+    weight: 30
+    flow:
+      # Autenticación
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Crear una sala
+      - post:
+          url: "/api/v1/rooms"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            name: "Load Test Room {{ $randomString() }}"
+            maxPlayers: 10
+            category: "general"
+          capture:
+            - json: "$.roomCode"
+              as: "roomCode"
+          expect:
+            - statusCode: 201
+      
+      # Obtener detalles de la sala
+      - get:
+          url: "/api/v1/rooms/{{ roomCode }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Simular tiempo de juego
+      - think: 15
+      
+      # Obtener resultados (si existen)
+      - get:
+          url: "/api/v1/game-results?roomCode={{ roomCode }}"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+      
+      # Pausa final
+      - think: 5
