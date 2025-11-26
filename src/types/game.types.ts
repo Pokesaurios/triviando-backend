@@ -1,7 +1,6 @@
 export type PlayerInfo = {
     userId: string;
     name : string;
-    blocked?: boolean;
 }
 
 export interface GameState {
