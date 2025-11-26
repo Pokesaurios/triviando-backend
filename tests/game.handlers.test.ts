@@ -85,6 +85,7 @@ jest.mock('../src/services/game.service', () => ({ __esModule: true,
   MAX_BUTTON_DELAY_MS: 10,
   PRESS_WINDOW_MS: 1000,
   ANSWER_TIMEOUT_MS: 500,
+  clearAnswerWindow: jest.fn(),
 }));
 
 import { registerGameHandlers } from '../src/socket/game.handlers';
