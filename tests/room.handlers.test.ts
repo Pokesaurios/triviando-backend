@@ -121,7 +121,7 @@ describe('room.handlers', () => {
 
   it('room:create validates input and creates room, caches state and emits update', async () => {
     const io = createFakeIO();
-    const socket = createFakeSocket(users[0] && { id: 'u1', name:'Alice' });
+    const socket = createFakeSocket({ id: 'u1', name:'Alice' });
 
     registerRoomHandlers(io as any, socket as any);
 
