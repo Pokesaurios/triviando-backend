@@ -12,6 +12,17 @@ const ROOM_CACHE_TTL = 120;
 export function registerRoomHandlers(io: Server, socket: Socket) {
   let currentRoom: string | null = null;
 
+  // Helper para asegurarse de tener un nombre de usuario
+  async function resolveUserName(userId: string, currentName?: string) {
+    if (currentName && String(currentName).trim()) return currentName;
+    try {
+      const u = await User.findById(userId).select("name").lean();
+      return u?.name || "Anonymous";
+    } catch {
+      return "Anonymous";
+    }
+  }
+
   // ------------- room:create (via socket) -------------
   socket.on("room:create", async ({ topic, maxPlayers = 4, quantity = 5 }, ack) => {
     try {
@@ -82,10 +93,13 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       const user = socket.data.user;
       if (!code) return ack?.({ ok: false, message: "Room code required" });
 
+      // resolver nombre si no viene en el token
+      const userName = await resolveUserName(user.id, user.name);
+
       // atomic add: reuse your service or perform findOneAndUpdate
       const updated = await Room.findOneAndUpdate(
         { code, "players.userId": { $ne: user.id }, $expr: { $lt: [{ $size: "$players" }, "$maxPlayers"] } },
-        { $push: { players: { userId: user.id, name: user.name, joinedAt: new Date() } } },
+        { $push: { players: { userId: user.id, name: userName, joinedAt: new Date() } } },
         { new: true }
       ).lean();
 
@@ -118,7 +132,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
 
       io.to(code).emit("room:update", {
         event: "playerJoined",
-        player: { userId: user.id, name: user.name },
+        player: { userId: user.id, name: userName },
         players: updated.players.map((p:any) => ({ userId: p.userId.toString(), name: p.name, joinedAt: p.joinedAt })),
       });
 
@@ -137,7 +151,8 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       if (message.length > 400) return ack?.({ ok: false, message: "Message too long" });
 
       const user = socket.data.user;
-      const chatMsg = { userId: user.id, user: user.name, message, timestamp: new Date() };
+      const userName = await resolveUserName(user.id, user.name);
+      const chatMsg = { userId: user.id, user: userName, message, timestamp: new Date() };
       await addChatMessage(code, chatMsg);
 
       io.to(code).emit("room:chat:new", chatMsg);
