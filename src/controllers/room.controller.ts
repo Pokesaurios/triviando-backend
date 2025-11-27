@@ -4,8 +4,8 @@ import { Trivia } from "../models/trivia.model";
 import { generateQuestions } from "../services/aiGenerator.service";
 import { Types } from "mongoose";
 import redis from "../config/redis";
-import User from "../models/user.model";
 import { joinRoomAtomically } from "../services/joinRoom.service";
+import { resolveUserName } from "../utils/userHelpers";
 
 const ROOM_CACHE_TTL = 120;
 
@@ -31,10 +31,7 @@ export const createRoom = async (req: Request, res: Response) => {
 
     const code = await generateUniqueRoomCode();
 
-    const playerName =
-      user.name ||
-      (await User.findById(user.id).select("name").lean())?.name ||
-      "Anonymous";
+    const playerName = await resolveUserName(user.id, user.name);
 
     const player = {
       userId: new Types.ObjectId(user.id),
@@ -84,8 +81,7 @@ export const joinRoom = async (req: Request, res: Response) => {
     if (!code?.trim()) return res.status(400).json({ message: "Código de sala requerido." });
 
     // A veces el payload del token no incluye el nombre; obtenerlo de la BD si falta
-    const userName =
-      user.name || (await User.findById(user.id).select("name").lean())?.name || "Anonymous";
+    const userName = await resolveUserName(user.id, user.name);
 
     const { ok, message, room } = await joinRoomAtomically(code, user.id, userName);
     if (!ok) return res.status(400).json({ message });

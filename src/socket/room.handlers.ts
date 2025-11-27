@@ -1,28 +1,16 @@
 import { Server, Socket } from "socket.io";
 import { Room, generateUniqueRoomCode } from "../models/room.model";
 import { Trivia } from "../models/trivia.model";
-import User from "../models/user.model";
 import { generateQuestions } from "../services/aiGenerator.service";
 import { addChatMessage, getChatHistory } from "../utils/redisChat";
 import redis from "../config/redis";
 import { getGameState } from "../services/game.service";
+import { resolveUserName } from "../utils/userHelpers";
 
 const ROOM_CACHE_TTL = 120;
 
 export function registerRoomHandlers(io: Server, socket: Socket) {
   let currentRoom: string | null = null;
-
-  // Helper para asegurarse de tener un nombre de usuario
-  async function resolveUserName(userId: string, currentName?: string) {
-    if (currentName && String(currentName).trim()) return currentName;
-    try {
-      const u = await User.findById(userId).select("name").lean();
-      return u?.name || "Anonymous";
-    } catch (error) {
-      console.error('[resolveUserName] Error fetching user:', error);
-      return "Anonymous";
-    }
-  }
 
   // ------------- room:create (via socket) -------------
   socket.on("room:create", async ({ topic, maxPlayers = 4, quantity = 5 }, ack) => {
@@ -41,8 +29,8 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       const code = await generateUniqueRoomCode();
 
       // get user name (token might include name)
-      const userDoc = await User.findById(user.id).select("name").lean();
-      const player = { userId: user.id, name: userDoc?.name || "Anonymous", joinedAt: new Date() };
+      const playerName = await resolveUserName(user.id, user.name);
+      const player = { userId: user.id, name: playerName, joinedAt: new Date() };
 
       const room = await new Room({
         code,
