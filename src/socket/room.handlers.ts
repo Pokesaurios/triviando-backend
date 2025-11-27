@@ -152,7 +152,10 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       if (message.length > 400) return ack?.({ ok: false, message: "Message too long" });
 
       const user = socket.data.user;
-      const userName = await resolveUserName(user.id, user.name);
+      if (!socket.data.resolvedUserName) {
+        socket.data.resolvedUserName = await resolveUserName(user.id, user.name);
+      }
+      const userName = socket.data.resolvedUserName;
       const chatMsg = { userId: user.id, user: userName, message, timestamp: new Date() };
       await addChatMessage(code, chatMsg);
 
