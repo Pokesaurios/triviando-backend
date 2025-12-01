@@ -1,5 +1,3 @@
-import { Room as RoomModelType } from "../models/room.model";
-
 export function buildRoomCacheData(room: any) {
   return {
     code: room.code,
