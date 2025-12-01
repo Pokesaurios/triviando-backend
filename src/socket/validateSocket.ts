@@ -9,19 +9,11 @@ export const socketValidator = (schema: ZodSchema<any>, handler: (payload: any, 
       const parsed = schema.parse(payload);
       return handler.call(this, parsed, ack, this);
     } catch (err) {
-      const maybeErr: any = err as any;
       let details: any[] = [];
-      if (Array.isArray(maybeErr?.errors)) {
-        details = maybeErr.errors;
-      } else if (typeof maybeErr?.message === 'string' && maybeErr.message.trim().startsWith('[')) {
-        try {
-          const parsed = JSON.parse(maybeErr.message);
-          details = Array.isArray(parsed) ? parsed : [{ message: maybeErr.message }];
-        } catch {
-          details = [{ message: maybeErr.message }];
-        }
+      if (err instanceof ZodError) {
+        details = err.issues;
       } else {
-        details = [{ message: maybeErr?.message }];
+        details = [{ message: (err as Error)?.message || 'Unknown error' }];
       }
 
       let message = Array.isArray(details) && details.length && (details[0] as any).message ? (details[0] as any).message : 'Invalid payload';
