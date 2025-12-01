@@ -14,6 +14,9 @@ const ROOM_CACHE_TTL = 120;
 export const createRoom = async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
+    if (!user?.id) {
+      return res.status(401).json({ message: "No autorizado. Debes iniciar sesión para crear una sala." });
+    }
 
     const { topic, maxPlayers = 4, quantity = 5 } = req.body;
 

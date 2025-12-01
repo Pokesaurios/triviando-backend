@@ -121,7 +121,7 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       ack?.({ ok: true, room: { code, players: updated.players.map((p:any) => ({ userId: p.userId.toString(), name: p.name, joinedAt: p.joinedAt })), chatHistory } });
 
     } catch (err: any) {
-      logger.error({ err: err?.message || err, socketId: socket.id, code }, "room:join error");
+      logger.error({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "room:join error");
       ack?.({ ok: false, error: err.message });
     }
   });

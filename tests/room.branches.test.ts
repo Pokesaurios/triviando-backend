@@ -3,7 +3,6 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 import express, { json } from "express";
 
-import { Room } from "../src/models/room.model";
 import * as roomController from "../src/controllers/room.controller";
 
 // Mock redis
