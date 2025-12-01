@@ -56,7 +56,7 @@ describe('room.handlers branches', () => {
     const longMsg = 'x'.repeat(401);
     await socket.trigger('room:chat', { code: 'X', message: longMsg }, (resp:any) => {
       expect(resp.ok).toBe(false);
-      expect(resp.message).toMatch(/too long/i);
+      expect(resp.message).toMatch("Message exceeds maximum length of 400 characters");
     });
   });
 
