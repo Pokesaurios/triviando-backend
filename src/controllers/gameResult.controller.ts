@@ -51,7 +51,7 @@ export const getGameResultByRoom = async (req: Request, res: Response) => {
       }
     }
 
-    const obj = (result as any) && typeof (result as any).toObject === "function" ? (result as any).toObject() : result;
+    const obj = typeof (result as any)?.toObject === "function" ? (result as any).toObject() : result;
     if (obj && obj.scores instanceof Map) {
       obj.scores = Object.fromEntries(obj.scores);
     }
