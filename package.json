@@ -8,6 +8,7 @@
     "build": "tsc && copyfiles -u 2 src/docs/**/* dist/docs",
     "start": "node dist/server.js",
       "test": "jest --detectOpenHandles --coverage",
+      "check:coverage": "node -e \"const fs=require('fs');const p='coverage/coverage-summary.json';if(!fs.existsSync(p)){console.error('Coverage summary not found');process.exit(1);}const cov=JSON.parse(fs.readFileSync(p)).total.lines.pct;console.log('Lines coverage:',cov+'%');if(cov<80){console.error('Coverage threshold not met');process.exit(1);}\"",
       "lint": "eslint src --ext .ts,.tsx",
       "lint:fix": "eslint src --ext .ts,.tsx --fix"
   },

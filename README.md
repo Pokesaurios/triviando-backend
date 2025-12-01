@@ -1,4 +1,6 @@
 # TrivIAndo — Backend
+[![CI Quality](https://github.com/Pokesaurios/triviando-backend/actions/workflows/sonar-quality-backend.yml/badge.svg?branch=main)](https://github.com/Pokesaurios/triviando-backend/actions/workflows/sonar-quality-backend.yml)
+[![Coverage site](https://img.shields.io/website?label=coverage&url=https%3A%2F%2Fpokesaurios.github.io%2Ftriviando-backend)](https://pokesaurios.github.io/triviando-backend)
 
 Backend del servidor de TrivIAndo: una aplicación en TypeScript que expone una API REST y WebSockets (Socket.IO) para jugar trivias en tiempo real, almacenar resultados y aprovechar generación de contenido con AI.
 
@@ -138,6 +140,39 @@ npm test
 ```
 
 El reporte de cobertura se genera en la carpeta `coverage/` y también hay un reporte HTML en `coverage/lcov-report` para revisión local.
+
+## CI & Calidad (SonarCloud)
+
+El proyecto incluye un workflow de GitHub Actions que se ejecuta en `push` y en `pull_request` sobre `main` (y `develop`). El pipeline hace lo siguiente:
+
+- Instala dependencias (`npm ci`).
+- Ejecuta `npm test` y genera reportes de cobertura (`coverage/lcov.info` y `coverage/coverage-summary.json`).
+- Verifica en el job que la cobertura de líneas sea ≥ 80% y falla el job si no.
+- Ejecuta el escaneo de SonarCloud y espera el resultado del Quality Gate; el job falla si el Quality Gate no es `OK`.
+- Publica un comentario resumido en el PR con la cobertura y el estado del Quality Gate.
+
+Requisitos y configuración en GitHub:
+
+- Añadir el secret `SONAR_TOKEN` (Settings → Secrets) con un token válido de SonarCloud.
+- Opcional: `SONAR_ORGANIZATION` si prefieres inyectarlo en el workflow (el proyecto ya define `sonar.organization` en `sonar-project.properties`).
+- Proteger la rama `main` (Settings → Branches → Branch protection rules): exigir checks de CI (marca el check que aparece tras ejecutar el workflow) y bloquear merges cuando fallen los checks.
+
+Requisitos en SonarCloud (configurar en la UI de SonarCloud):
+
+- Quality Gate personalizado que exija los umbrales deseados:
+  - Coverage (Lines) ≥ 80%
+  - Maintainability Rating = A
+  - Reliability Rating = A
+  - Security Rating = A
+  - Code duplication ≤ 3%
+  - Code smells ≤ 10 per 1000 LOC
+  - Complejidad y otras métricas que quieras controlar
+
+Notas:
+
+- La verificación de Quality Gate se realiza consultando la API de SonarCloud desde el workflow; el comportamiento de bloqueo depende de la configuración del Quality Gate en SonarCloud.
+- El workflow ya añade un comentario básico en el PR; si prefieres comentarios más ricos (anotaciones por archivo o integración con `reviewdog`) puedo añadirlo.
+
 
 ## Contrato breve de la API y websocket (útil para tests)
 

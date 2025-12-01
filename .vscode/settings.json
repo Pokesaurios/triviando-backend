@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "pokesaurios",
+        "projectKey": "Pokesaurios_triviando-backend"
+    }
+}
