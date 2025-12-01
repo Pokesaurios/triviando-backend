@@ -39,10 +39,16 @@ jobs:
     needs: build-coverage
     runs-on: ubuntu-latest
     steps:
+      - name: Download coverage HTML artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-lcov-report
+          path: coverage-lcov-report
+
       - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: coverage/lcov-report
+          path: coverage-lcov-report
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v1
