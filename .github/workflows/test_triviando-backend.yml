@@ -32,7 +32,7 @@ jobs:
           path: .
 
       - name: Run tests with coverage
-        run: npm run test -- --coverage
+        run: npm run test
 
       - name: Verify coverage ≥ 80%
         run: |
