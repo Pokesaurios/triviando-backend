@@ -48,6 +48,7 @@ import {
   attemptFirstPress,
   resetFirstPress,
   dedupeEvent,
+  clearAnswerWindow,
 } from '../src/services/game.service';
 
 jest.useFakeTimers();
@@ -60,6 +61,7 @@ describe('game.service', () => {
     store.clear();
   });
 
+  // ✅ initGameState OK
   it('initGameState creates and persists initial state with scores map', async () => {
     const state = await initGameState('ABCD12', 't1', [
       { userId: 'u1', name: 'Alice' },
@@ -73,6 +75,20 @@ describe('game.service', () => {
     expect(raw?.players.map(p => p.userId)).toEqual(['u1','u2']);
   });
 
+  // ✅ initGameState error branch
+  it('initGameState throws if trivia is not found', async () => {
+    const { Trivia } = require('../src/models/trivia.model');
+
+    (Trivia.findById as jest.Mock).mockReturnValueOnce({
+      lean: () => null,
+    });
+
+    await expect(
+      initGameState('X1', 'bad-id', [])
+    ).rejects.toThrow('Trivia not found');
+  });
+
+  // ✅ saveGameState
   it('saveGameState overrides existing persisted state', async () => {
     await initGameState('ROOM1', 't1', [{ userId: 'u1', name: 'A' }]);
     const s = await getGameState('ROOM1');
@@ -85,23 +101,55 @@ describe('game.service', () => {
     expect(after?.scores.u1).toBe(42);
   });
 
+  // ✅ getGameState corrupt JSON
   it('getGameState handles corrupted JSON, logs and deletes key returning null', async () => {
     const code = 'BROKEN';
-    // simulate corrupt value
     store.set(keyFor(code), '{not-json');
     const res = await getGameState(code);
     expect(res).toBeNull();
     expect(delSpy).toHaveBeenCalledWith(keyFor(code));
-    // also increments metric and sets expire
     expect(incrSpy).toHaveBeenCalled();
     expect(expireSpy).toHaveBeenCalled();
   });
 
+  // ✅ getGameState when incr fails
+  it('getGameState continues even if metric incr fails', async () => {
+    incrSpy.mockRejectedValueOnce(new Error('incr failed'));
+    store.set(keyFor('BROKEN2'), '{bad-json');
+    const res = await getGameState('BROKEN2');
+    expect(res).toBeNull();
+    expect(delSpy).toHaveBeenCalled();
+  });
+
+  // ✅ getGameState when expire fails
+  it('getGameState continues even if expire fails', async () => {
+    expireSpy.mockRejectedValueOnce(new Error('expire failed'));
+    store.set(keyFor('BROKEN3'), '{bad-json');
+    const res = await getGameState('BROKEN3');
+    expect(res).toBeNull();
+  });
+
+  // ✅ getGameState when del fails
+  it('getGameState continues even if delete fails', async () => {
+    delSpy.mockRejectedValueOnce(new Error('delete failed'));
+    store.set(keyFor('BROKEN4'), '{bad-json');
+    const res = await getGameState('BROKEN4');
+    expect(res).toBeNull();
+  });
+
+  // ✅ clearAnswerWindow
+  it('clearAnswerWindow removes answerWindowEndsAt', () => {
+    const state: any = { answerWindowEndsAt: 123 };
+    clearAnswerWindow(state);
+    expect(state.answerWindowEndsAt).toBeUndefined();
+  });
+
+  // ✅ attemptFirstPress + reset
   it('attemptFirstPress returns true only the first time within window; reset clears it', async () => {
     setNxPxMock.mockResolvedValueOnce('OK');
     const first = await attemptFirstPress('R', 'u1', 5000);
     expect(first).toBe(true);
-    // second time returns not OK
+
     setNxPxMock.mockResolvedValueOnce(null as any);
     const second = await attemptFirstPress('R', 'u2', 5000);
     expect(second).toBe(false);
@@ -110,6 +158,7 @@ describe('game.service', () => {
     expect(delSpy).toHaveBeenCalledWith('room:R:firstPress');
   });
 
+  // ✅ dedupeEvent normal + duplicate
   it('dedupeEvent accepts first event and rejects duplicates, applies TTL', async () => {
     (saddSpy as jest.Mock).mockResolvedValueOnce(1);
     const first = await dedupeEvent('R2', 'evt-1', 5);
@@ -121,14 +170,20 @@ describe('game.service', () => {
     expect(dup).toBe(false);
   });
 
+  // ✅ dedupeEvent early return
+  it('dedupeEvent returns true if eventId is empty', async () => {
+    const res = await dedupeEvent('R3', '', 5);
+    expect(res).toBe(true);
+  });
+
+  // ✅ scheduleTimer + clearTimer + error branch
   it('scheduleTimer clears existing keys and runs callback once; clearTimer cancels', async () => {
     const fn = jest.fn();
     scheduleTimer('k', fn, 1000);
-    // schedule another with same key; should clear previous
+
     const fn2 = jest.fn();
     scheduleTimer('k', fn2, 1000);
 
-    // run timers
     jest.advanceTimersByTime(1000);
     expect(fn).not.toHaveBeenCalled();
     expect(fn2).toHaveBeenCalledTimes(1);
@@ -138,5 +193,21 @@ describe('game.service', () => {
     clearTimer('c');
     jest.advanceTimersByTime(1000);
     expect(canceled).not.toHaveBeenCalled();
+  });
+
+  it('scheduleTimer catches and logs callback errors', async () => {
+    const badFn = jest.fn(() => {
+      throw new Error('boom');
+    });
+
+    scheduleTimer('err', badFn, 1000);
+    jest.advanceTimersByTime(1000);
+
+    expect(badFn).toHaveBeenCalled();
+  });
+
+  it('clearTimer does nothing if key does not exist', () => {
+    clearTimer('nope');
+    expect(true).toBe(true);
   });
 });

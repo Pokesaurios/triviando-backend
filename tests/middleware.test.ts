@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { errorHandler } from "../src/middleware/errorHandler";
 import { authMiddleware } from "../src/middleware/auth.middleware";
+import logger from "../src/utils/logger";
 
 jest.mock("jsonwebtoken");
 
@@ -54,6 +55,7 @@ describe("🧱 Middleware Tests", () => {
   describe("authMiddleware", () => {
     beforeEach(() => {
       process.env.JWT_SECRET = "test-secret";
+      jest.spyOn(logger, "warn").mockImplementation(() => {});
     });
 
     it("should return 401 if no token provided", () => {
@@ -65,6 +67,7 @@ describe("🧱 Middleware Tests", () => {
       expect(mockRes.json).toHaveBeenCalledWith({
         message: "Token not provided or invalid",
       });
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it("should return 401 if header format is invalid", () => {
@@ -76,6 +79,7 @@ describe("🧱 Middleware Tests", () => {
       expect(mockRes.json).toHaveBeenCalledWith({
         message: "Token not provided or invalid",
       });
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it("should return 401 if JWT_SECRET is not configured", () => {
@@ -88,6 +92,7 @@ describe("🧱 Middleware Tests", () => {
       expect(mockRes.json).toHaveBeenCalledWith({
         message: "Token invalid or expired",
       });
+      expect(logger.warn).toHaveBeenCalled();
     });
 
     it("should call next() if token is valid", () => {
@@ -99,6 +104,7 @@ describe("🧱 Middleware Tests", () => {
       expect(jwt.verify).toHaveBeenCalledWith("validtoken", "test-secret");
       expect(mockReq.user).toEqual({ id: "123", name: "Tester" });
       expect(mockNext).toHaveBeenCalled();
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("should return 401 if token is invalid", () => {
@@ -113,6 +119,7 @@ describe("🧱 Middleware Tests", () => {
       expect(mockRes.json).toHaveBeenCalledWith({
         message: "Token invalid or expired",
       });
+      expect(logger.warn).toHaveBeenCalled();
     });
   });
 });

@@ -2,6 +2,7 @@ import { Socket } from "socket.io";
 import jwt from "jsonwebtoken";
 import User from "../src/models/user.model";
 import { socketAuthMiddleware } from "../src/middleware/socketAuth";
+import logger from "../src/utils/logger";
 
 jest.mock("jsonwebtoken");
 jest.mock("../src/models/user.model");
@@ -11,6 +12,7 @@ describe("socketAuthMiddleware", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(logger, 'warn').mockImplementation(() => {});
   });
 
   it("✅ autentica correctamente con token válido", async () => {
@@ -32,6 +34,7 @@ describe("socketAuthMiddleware", () => {
     const next = jest.fn();
     await socketAuthMiddleware(mockSocket, next);
     expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(logger.warn).toHaveBeenCalled();
   });
 
   it("❌ falla si user no existe", async () => {
@@ -44,5 +47,6 @@ describe("socketAuthMiddleware", () => {
     const next = jest.fn();
     await socketAuthMiddleware(mockSocket, next);
     expect(next).toHaveBeenCalledWith(expect.any(Error));
+    expect(logger.warn).toHaveBeenCalled();
   });
 });

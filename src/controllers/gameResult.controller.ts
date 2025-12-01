@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { GameResult } from "../models/gameResult.model";
 import { Room } from "../models/room.model";
 import logger from "../utils/logger";
-import { forbidden, unauthorized } from "../utils/responses";
+import { forbidden } from "../utils/responses";
 
 export const getGameResults = async (req: Request, res: Response) => {
   try {
