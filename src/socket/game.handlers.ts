@@ -50,7 +50,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
       ack?.({ ok: true });
     } catch (err: any) {
-      logger.error({ err: err?.message || err, socketId: socket.id, code }, "game:start error");
+      logger.error({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "game:start error");
       ack?.({ ok: false, error: err.message });
     }
   });
@@ -119,7 +119,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
       ack?.({ ok: true, message: "You pressed first" });
     } catch (err: any) {
-      logger.warn({ err: err?.message || err, socketId: socket.id, code }, "round:buttonPress error");
+      logger.warn({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "round:buttonPress error");
       ack?.({ ok: false, error: err.message });
     }
   });
@@ -185,7 +185,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         return ack?.({ ok: true, correct: false });
       }
     } catch (err: any) {
-      logger.warn({ err: err?.message || err, socketId: socket.id, code }, "round:answer error");
+      logger.warn({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "round:answer error");
       ack?.({ ok: false, error: err.message });
     }
   });
