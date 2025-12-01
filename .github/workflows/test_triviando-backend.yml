@@ -20,6 +20,16 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: Create .env file from GitHub Secrets
+        run: |
+          echo "PORT=${{ secrets.PORT }}" >> .env
+          echo "MONGODB_URI=${{ secrets.MONGODB_URI }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "JWT_EXPIRES=${{ secrets.JWT_EXPIRES }}" >> .env
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+          echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> .env
+          echo "NODE_ENV=${{ secrets.NODE_ENV }}" >> .env
+
       - name: Install dependencies and build
         run: |
           npm ci
