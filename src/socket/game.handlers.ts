@@ -19,6 +19,7 @@ import {
   ANSWER_TIMEOUT_MS,
 } from "../services/game.service";
 import { GameResult } from "../models/gameResult.model";
+import { Types } from "mongoose";
 import logger from "../utils/logger";
 import { socketValidator } from "./validateSocket";
 import { gameStartSchema, buttonPressSchema, answerSchema } from "../schemas/game";
@@ -384,14 +385,22 @@ export function registerGameHandlers(io: Server, socket: Socket) {
 
       const winner = sortedPlayers[0];
 
+      const triviaIdForSave = (() => {
+        if (typeof state.triviaId === 'string') {
+          // Only construct ObjectId if the string is a valid 24-hex ObjectId
+          return Types.ObjectId.isValid(state.triviaId) ? new Types.ObjectId(state.triviaId) : state.triviaId;
+        }
+        return state.triviaId;
+      })();
+
       await GameResult.create({
         roomCode: code,
-        triviaId: state.triviaId,
+        triviaId: triviaIdForSave,
         finishedAt: new Date(),
         scores: state.scores,
         players: sortedPlayers,
         winner,
-      });
+      } as any);
 
       await Room.findOneAndUpdate({ code }, { status: "finished" }).exec();
 
