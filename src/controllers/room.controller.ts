@@ -5,6 +5,7 @@ import { generateQuestions } from "../services/aiGenerator.service";
 import redis from "../config/redis";
 import { joinRoomAtomically } from "../services/joinRoom.service";
 import { resolveUserName } from "../utils/userHelpers";
+import { buildRoomCacheData, buildSanitizedRoom } from "../utils/roomHelpers";
 
 const ROOM_CACHE_TTL = 120;
 
@@ -46,13 +47,7 @@ export const createRoom = async (req: Request, res: Response) => {
       players: [player],
     }).save();
 
-    const cacheData = {
-      code: room.code,
-      status: room.status,
-      players: room.players.map((p) => ({ userId: p.userId, name: p.name })),
-      maxPlayers: room.maxPlayers,
-      hostId: room.hostId,
-    };
+    const cacheData = buildRoomCacheData(room);
     await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify(cacheData));
 
     return res.status(201).json({
@@ -85,23 +80,10 @@ export const joinRoom = async (req: Request, res: Response) => {
     const { ok, message, room } = await joinRoomAtomically(code, user.id, userName);
     if (!ok) return res.status(400).json({ message });
 
-    const cacheData = {
-      code: room.code,
-      status: room.status,
-      players: room.players.map((p: any) => ({ userId: p.userId, name: p.name })),
-      maxPlayers: room.maxPlayers,
-      hostId: room.hostId,
-    };
+    const cacheData = buildRoomCacheData(room);
     await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify(cacheData));
 
-    const sanitizedRoom = {
-      code: room.code,
-      status: room.status,
-      maxPlayers: room.maxPlayers,
-      players: room.players.map((p: any) => ({ userId: p.userId, name: p.name })),
-      hostId: room.hostId,
-    };
-
+    const sanitizedRoom = buildSanitizedRoom(room);
     return res.status(200).json({ message, room: sanitizedRoom });
   } catch (error: any) {
     console.error("[joinRoom] Error:", error);
@@ -151,13 +133,8 @@ export const getRoomState = async (req: Request, res: Response) => {
       joinedAt: p.joinedAt,
     }));
 
-    const cacheData = {
-      code: room.code,
-      status: room.status,
-      players: safePlayers,
-      maxPlayers: room.maxPlayers,
-      hostId: room.hostId,
-    };
+    const cacheData = buildRoomCacheData(room);
+    cacheData.players = safePlayers;
     await redis.setex(`room:${sanitizedCode}:state`, ROOM_CACHE_TTL, JSON.stringify(cacheData));
 
     return res.status(200).json({ source: "db", room: cacheData });

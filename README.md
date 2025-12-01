@@ -1,6 +1,4 @@
 # TrivIAndo — Backend
-[![CI Quality](https://github.com/Pokesaurios/triviando-backend/actions/workflows/sonar-quality-backend.yml/badge.svg?branch=main)](https://github.com/Pokesaurios/triviando-backend/actions/workflows/sonar-quality-backend.yml)
-[![Coverage site](https://img.shields.io/website?label=coverage&url=https%3A%2F%2Fpokesaurios.github.io%2Ftriviando-backend)](https://pokesaurios.github.io/triviando-backend)
 
 Backend del servidor de TrivIAndo: una aplicación en TypeScript que expone una API REST y WebSockets (Socket.IO) para jugar trivias en tiempo real, almacenar resultados y aprovechar generación de contenido con AI.
 

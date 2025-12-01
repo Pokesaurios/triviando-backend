@@ -6,6 +6,7 @@ import { addChatMessage, getChatHistory } from "../utils/redisChat";
 import redis from "../config/redis";
 import { getGameState } from "../services/game.service";
 import { resolveUserName } from "../utils/userHelpers";
+import { buildRoomCacheData } from "../utils/roomHelpers";
 
 const ROOM_CACHE_TTL = 120;
 
@@ -45,13 +46,8 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       currentRoom = code;
 
       // set initial cache
-      await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify({
-        code,
-        status: room.status,
-        players: room.players.map((p:any) => ({ userId: p.userId, name: p.name })),
-        maxPlayers: room.maxPlayers,
-        hostId: room.hostId,
-      }));
+      const cache = buildRoomCacheData(room);
+      await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify(cache));
 
       // return to host
       ack?.({
@@ -111,13 +107,8 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
       const chatHistory = await getChatHistory(code);
 
       // update cache
-      await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify({
-        code,
-        status: updated.status,
-        players: updated.players.map((p:any) => ({ userId: p.userId, name: p.name })),
-        maxPlayers: updated.maxPlayers,
-        hostId: updated.hostId,
-      }));
+      const cache = buildRoomCacheData(updated);
+      await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify(cache));
 
       io.to(code).emit("room:update", {
         event: "playerJoined",

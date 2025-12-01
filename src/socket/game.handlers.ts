@@ -167,14 +167,9 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         }
         return ack?.({ ok: true, correct: true });
       } else {
-        state.status = "result";
-        state.blocked = {};
-        state.players.forEach(p => { state.blocked[p.userId] = p.userId === user.id; });
-        clearAnswerWindow(state);
-        await saveGameState(code, state);
+        await finalizeResultState(code, state, io, user.id);
 
         io.to(code).emit("round:result", { roundSequence, playerId: user.id, correct: false, message: "Incorrect answer", scores: state.scores });
-        io.to(code).emit('game:update', state);
 
         await resetFirstPress(code);
         setTimeout(() => startRoundOpenButtonAgain(code, io, roundSequence), 800);
@@ -289,11 +284,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       return;
     }
 
-    state.status = "result";
-    state.blocked = {};
-    state.players.forEach(p => { state.blocked[p.userId] = p.userId === userId; });
-    clearAnswerWindow(state);
-    await saveGameState(code, state);
+    await finalizeResultState(code, state, ioInstance, userId);
 
     ioInstance.to(code).emit("round:result", {
       roundSequence,
@@ -303,11 +294,22 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       scores: state.scores,
     });
 
-    ioInstance.to(code).emit('game:update', state);
-
     await resetFirstPress(code);
 
     setTimeout(() => startRoundOpenButtonAgain(code, ioInstance, roundSequence), 1200);
+  }
+
+  async function finalizeResultState(code: string, state: any, ioInstance: Server, blockingUserId?: string) {
+    state.status = "result";
+    state.blocked = {};
+    if (blockingUserId) {
+      state.players.forEach((p: any) => {
+        state.blocked[p.userId] = p.userId === blockingUserId;
+      });
+    }
+    clearAnswerWindow(state);
+    await saveGameState(code, state);
+    ioInstance.to(code).emit('game:update', state);
   }
 
   async function startRoundOpenButtonAgain(code: string, ioInstance: Server, roundSequence: number) {
