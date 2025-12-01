@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { ZodSchema } from "zod";
+import { ZodSchema, ZodError } from "zod";
 
 export const validateBody = (schema: ZodSchema<any>) => (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -7,8 +7,12 @@ export const validateBody = (schema: ZodSchema<any>) => (req: Request, res: Resp
     req.body = parsed;
     return next();
   } catch (err) {
-    const maybeErr: any = err as any;
-    const details = Array.isArray(maybeErr?.errors) ? maybeErr.errors : [{ message: maybeErr?.message }];
+    let details: any[] = [];
+    if (err instanceof ZodError) {
+      details = err.issues;
+    } else {
+      details = [{ message: (err as Error)?.message || 'Unknown error' }];
+    }
     return res.status(400).json({ message: "Invalid request body", details });
   }
 };
@@ -19,8 +23,12 @@ export const validateParams = (schema: ZodSchema<any>) => (req: Request, res: Re
     req.params = parsed;
     return next();
   } catch (err) {
-    const maybeErr: any = err as any;
-    const details = Array.isArray(maybeErr?.errors) ? maybeErr.errors : [{ message: maybeErr?.message }];
+    let details: any[] = [];
+    if (err instanceof ZodError) {
+      details = err.issues;
+    } else {
+      details = [{ message: (err as Error)?.message || 'Unknown error' }];
+    }
     return res.status(400).json({ message: "Invalid request params", details });
   }
 };
