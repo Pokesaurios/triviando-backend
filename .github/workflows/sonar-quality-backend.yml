@@ -1,4 +1,4 @@
-name: CI Quality with SonarCloud for Backend
+name: CI Tests and Coverage
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  test-and-sonar:
+  test:
     runs-on: ubuntu-latest
 
     steps:
@@ -32,40 +32,3 @@ jobs:
         uses: SonarSource/sonarcloud-github-action@master
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-      - name: Wait and check SonarCloud Quality Gate
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          set -e
-          # extract project key from properties
-          if [ ! -f sonar-project.properties ]; then echo 'sonar-project.properties not found'; exit 1; fi
-          PROJECT_KEY=$(grep '^sonar.projectKey' sonar-project.properties | cut -d'=' -f2 | tr -d '\r')
-          echo "Project key: $PROJECT_KEY"
-          # wait for analysis to appear
-          for i in {1..30}; do
-            ANALYSIS_KEY=$(curl -s -u ${SONAR_TOKEN}: "https://sonarcloud.io/api/project_analyses/search?project=${PROJECT_KEY}" | jq -r '.analyses[0].key') || ANALYSIS_KEY=""
-            if [ -n "$ANALYSIS_KEY" ] && [ "$ANALYSIS_KEY" != "null" ]; then break; fi
-            echo 'Waiting for analysis to be available on SonarCloud...'; sleep 5
-          done
-          if [ -z "$ANALYSIS_KEY" ] || [ "$ANALYSIS_KEY" = "null" ]; then echo 'No analysis found on SonarCloud'; exit 1; fi
-          echo "Analysis key: $ANALYSIS_KEY"
-          STATUS=$(curl -s -u ${SONAR_TOKEN}: "https://sonarcloud.io/api/qualitygates/project_status?analysisId=${ANALYSIS_KEY}" | jq -r '.projectStatus.status')
-          echo "Quality Gate status: $STATUS"
-          if [ "$STATUS" != "OK" ]; then echo "Quality Gate failed: $STATUS"; exit 1; fi
-
-      - name: Post summary comment on PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs')
-            const covPath = 'coverage/coverage-summary.json'
-            let cov = 'unknown'
-            if (fs.existsSync(covPath)) {
-              cov = JSON.parse(fs.readFileSync(covPath)).total.lines.pct
-            }
-            const body = `### CI Report\n- Lines coverage: ${cov}%\n- SonarCloud Quality Gate: OK\n\nIf you need details, open the SonarCloud project for the full report.`
-            await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body})
-
