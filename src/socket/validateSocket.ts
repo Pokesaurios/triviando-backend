@@ -1,4 +1,4 @@
-import { ZodSchema } from "zod";
+import { ZodSchema, ZodError } from "zod";
 import { Socket } from "socket.io";
 
 type AckFn = (payload: any) => void;
