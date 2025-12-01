@@ -20,13 +20,14 @@ import {
 } from "../services/game.service";
 import { GameResult } from "../models/gameResult.model";
 import logger from "../utils/logger";
+import { socketValidator } from "./validateSocket";
+import { gameStartSchema, buttonPressSchema, answerSchema } from "../schemas/game";
 
 export function registerGameHandlers(io: Server, socket: Socket) {
   // ------------- game:start -------------
-  socket.on("game:start", async ({ code }, ack) => {
+  socket.on("game:start", socketValidator(gameStartSchema, async ({ code }, ack) => {
     try {
       const user = socket.data.user;
-      if (!code) return ack?.({ ok: false, message: "Room code required" });
 
       const room = await Room.findOne({ code }).lean();
       if (!room) return ack?.({ ok: false, message: "Room not found" });
@@ -53,10 +54,10 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       logger.error({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "game:start error");
       ack?.({ ok: false, error: err.message });
     }
-  });
+  }));
 
   // Button press by a player
-  socket.on("round:buttonPress", async ({ code, roundSequence, eventId }, ack) => {
+  socket.on("round:buttonPress", socketValidator(buttonPressSchema, async ({ code, roundSequence, eventId }, ack) => {
     try {
       const user = socket.data.user;
 
@@ -122,10 +123,10 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       logger.warn({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "round:buttonPress error");
       ack?.({ ok: false, error: err.message });
     }
-  });
+  }));
 
   // Winner submits answer
-  socket.on("round:answer", async ({ code, roundSequence, selectedIndex, eventId }, ack) => {
+  socket.on("round:answer", socketValidator(answerSchema, async ({ code, roundSequence, selectedIndex, eventId }, ack) => {
     try {
       const user = socket.data.user;
       if (eventId) {
@@ -188,7 +189,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       logger.warn({ err: err?.message || err, socketId: socket.id, code: typeof code === 'string' ? code : 'unknown' }, "round:answer error");
       ack?.({ ok: false, error: err.message });
     }
-  });
+  }));
 
   async function startRound(code: string, ioInstance: Server) {
     const state = await getGameState(code);

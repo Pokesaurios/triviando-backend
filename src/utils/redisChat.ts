@@ -11,5 +11,5 @@ export async function addChatMessage(roomCode: string, message: any) {
 export async function getChatHistory(roomCode: string) {
   const key = `room:${roomCode}:chat`;
   const messages = await redis.lrange(key, 0, -1);
-  return messages.map((m) => JSON.parse(m));
+  return messages.map((m: string) => JSON.parse(m));
 }

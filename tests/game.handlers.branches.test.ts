@@ -43,19 +43,19 @@ const getGameState = jest.fn(async ()=> mockState);
 const saveGameState = jest.fn(async (_c:string, s:any)=> { mockState = JSON.parse(JSON.stringify(s)); });
 const scheduleTimer = jest.fn((_k:string, fn:()=>void)=> fn());
 const clearTimer = jest.fn();
-const attemptFirstPress = jest.fn(async ()=> true);
+const attemptFirstPress = jest.fn(async ()=> true) as jest.MockedFunction<(...a:any[]) => Promise<boolean>>;
 const resetFirstPress = jest.fn(async ()=> {});
 const dedupeEvent = jest.fn(async ()=> true);
 
 jest.mock('../src/services/game.service', () => ({ __esModule: true,
   initGameState: jest.fn(),
-  getGameState: (...a:any[]) => getGameState(...a),
-  saveGameState: (...a:any[]) => saveGameState(...a),
-  scheduleTimer: (...a:any[]) => scheduleTimer(...a),
-  clearTimer: (...a:any[]) => clearTimer(...a),
-  attemptFirstPress: (...a:any[]) => attemptFirstPress(...a),
-  resetFirstPress: (...a:any[]) => resetFirstPress(...a),
-  dedupeEvent: (...a:any[]) => dedupeEvent(...a),
+  getGameState: (...a:any[]) => getGameState.apply(null, a),
+  saveGameState: (...a:any[]) => saveGameState.apply(null, a),
+  scheduleTimer: (...a:any[]) => scheduleTimer.apply(null, a),
+  clearTimer: (...a:any[]) => clearTimer.apply(null, a),
+  attemptFirstPress: (...a:any[]) => attemptFirstPress.apply(null, a),
+  resetFirstPress: (...a:any[]) => resetFirstPress.apply(null, a),
+  dedupeEvent: (...a:any[]) => dedupeEvent.apply(null, a),
   clearAnswerWindow: jest.fn(),
   DEFAULT_QUESTION_READ_MS: 1,
   MIN_BUTTON_DELAY_MS: 0,
@@ -96,7 +96,7 @@ describe('game.handlers branches', () => {
     const socket = createFakeSocket({ id:'u1', name:'Alice' });
     registerGameHandlers(io as any, socket as any);
     mockState = { roomCode:'X', triviaId:'t1', status:'open', currentQuestionIndex:0, roundSequence: 4, scores:{}, blocked:{}, players:[{ userId:'u1', name:'Alice' }, { userId:'u2', name:'Bob' }] };
-    (attemptFirstPress as jest.Mock).mockResolvedValueOnce(false);
+    (attemptFirstPress as jest.MockedFunction<(...a:any[]) => Promise<boolean>>).mockResolvedValueOnce(false);
     await socket.trigger('round:buttonPress', { code:'X', roundSequence: 4 }, (resp:any)=>{
       expect(resp.ok).toBe(false);
       expect(resp.message).toMatch(/otro jugador/i);
