@@ -3,6 +3,7 @@ import { Trivia } from "../models/trivia.model";
 import { GameState } from "../types/game.types";
 import { setNxPx } from "../utils/redisHelpers";
 import logger from "../utils/logger";
+import { scheduleTimerJob, removeTimerJob } from "../queues/timers.queue";
 
 const GAME_PREFIX = (code: string) => `room:${code}:game`;
 const FIRST_PRESS_KEY = (code: string) => `room:${code}:firstPress`;
@@ -13,6 +14,8 @@ export const MIN_BUTTON_DELAY_MS = 1000;
 export const MAX_BUTTON_DELAY_MS = 5000;
 export const PRESS_WINDOW_MS = 10000;
 export const ANSWER_TIMEOUT_MS = 15000;
+export const ANSWER_BASE_SCORE = 100;
+export const ANSWER_SPEED_BONUS_MAX = 50; // maximum extra points for fastest answers
 export const MAX_LOG_SNIPPET_LENGTH = 200;
 
 export async function initGameState(
@@ -79,6 +82,7 @@ export async function saveGameState(code: string, state: GameState) {
 
 export function clearAnswerWindow(state: GameState) {
   state.answerWindowEndsAt = undefined;
+  state.answerWindowStartedAt = undefined;
 }
 
 /* In-memory timers for MVP (single instance)
@@ -128,4 +132,20 @@ export async function dedupeEvent(code: string, eventId: string, ttlSec = 10) {
     return true;
   }
   return false;
+}
+
+// ---------- Distributed timers (BullMQ) helpers ----------
+export async function scheduleDistributedAnswerTimeout(jobId: string, payload: any, delayMs: number) {
+  // In tests or if REDIS_URL is not configured, skip queuing to avoid opening handles
+  if (process.env.NODE_ENV === 'test' || !process.env.REDIS_URL) {
+    return;
+  }
+  await scheduleTimerJob(jobId, 'answerTimeout', delayMs, payload);
+}
+
+export async function clearDistributedTimer(jobId: string) {
+  if (process.env.NODE_ENV === 'test' || !process.env.REDIS_URL) {
+    return;
+  }
+  await removeTimerJob(jobId);
 }

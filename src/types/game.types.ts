@@ -14,5 +14,6 @@ export interface GameState {
     players: PlayerInfo[];
     questionReadEndsAt?: number; // timestamp
     answerWindowEndsAt?: number; // timestamp
+    answerWindowStartedAt?: number; // timestamp when answering window started (for speed scoring)
     tieBreakerPlayed?: boolean; // whether the spare tie-break question was used
 }

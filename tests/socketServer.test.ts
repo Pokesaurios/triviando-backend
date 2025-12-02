@@ -50,9 +50,12 @@ describe("initSocketServer", () => {
 
     // Verifica que construimos Server con los argumentos adecuados
     expect(mockServerCtor).toHaveBeenCalledTimes(1);
-    expect(mockServerCtor).toHaveBeenCalledWith(fakeHttpServer, {
-      cors: { origin: "*", methods: ["GET", "POST"] },
-    });
+    expect(mockServerCtor).toHaveBeenCalledWith(
+      fakeHttpServer,
+      expect.objectContaining({
+        cors: { origin: "*", methods: ["GET", "POST"] },
+      })
+    );
 
     // Y que la función devolvió la instancia creada
     expect(io).toBeDefined();
