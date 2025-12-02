@@ -10,6 +10,7 @@ import roomRoutes from "./routes/room.routes";
 import gameResultRoutes from "./routes/gameResult.routes";
 import mongoose from "mongoose";
 import redis from "./config/redis";
+import { isDraining } from "./config/draining";
 
 dotenv.config({ path: ".env" });
 
@@ -30,6 +31,9 @@ app.use(express.json());
 app.get("/", (_, res) => res.send("✅ TriviAndo API is running"));
 app.get("/healthz", (_req, res) => res.status(200).send("ok"));
 app.get("/readyz", async (_req, res) => {
+  if (isDraining()) {
+    return res.status(503).json({ draining: true });
+  }
   const mongoOk = mongoose.connection.readyState === 1;
   let redisOk = false;
   try { await (redis as any).ping?.(); redisOk = true; } catch {}

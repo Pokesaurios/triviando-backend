@@ -94,6 +94,17 @@ export function scheduleTimer(key: string, fn: () => void, delayMs: number) {
   const t = setTimeout(async () => {
     timersMap.delete(key);
     try {
+      // Distributed execution guard: only one node should execute this timer's handler
+      // Acquire a short-lived lock before executing. If not acquired, skip.
+      // This mitigates duplicate executions when multiple instances are running.
+      if (process.env.NODE_ENV !== 'test' && process.env.REDIS_URL) {
+        const lockKey = `timerlock:${key}`;
+        const lockTtlMs = Math.max(2000, Math.min(10000, delayMs + 200));
+        const res = await setNxPx(lockKey, `lock`, lockTtlMs);
+        if (res !== 'OK') {
+          return; // another node acquired the lock and will execute
+        }
+      }
       await fn();
     } catch (e) {
       logger.error({ err: (e as any)?.message || e, key }, 'scheduleTimer error');

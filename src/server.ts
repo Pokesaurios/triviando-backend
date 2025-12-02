@@ -7,6 +7,7 @@ import logger from "./utils/logger";
 import mongoose from "mongoose";
 import redisClient from "./config/redis";
 import { startTimersWorker, stopTimersWorker } from "./queues/timers.worker";
+import { setDraining } from "./config/draining";
 
 const PORT = process.env.PORT || 4000;
 
@@ -21,6 +22,7 @@ server.listen(PORT, () => {
 
 function shutdown(signal: string) {
   logger.info({ signal }, "Shutting down gracefully");
+  try { setDraining(true); } catch {}
   try { server.close(() => logger.info("HTTP server closed")); } catch {}
   try { (io as any)?.close?.(); } catch {}
   try { stopTimersWorker(); } catch {}
