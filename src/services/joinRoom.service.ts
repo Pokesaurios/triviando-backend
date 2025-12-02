@@ -1,5 +1,4 @@
 import { Room } from "../models/room.model";
-// mongoose import removed — rely on Mongoose model casting for ObjectId
 
 interface JoinRoomResult {
   ok: boolean;
