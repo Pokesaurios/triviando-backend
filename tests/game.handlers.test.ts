@@ -80,11 +80,17 @@ jest.mock('../src/services/game.service', () => ({ __esModule: true,
   attemptFirstPress: (...a:any[]) => attemptFirstPress(...a),
   resetFirstPress: (...a:any[]) => resetFirstPress(...a),
   dedupeEvent: (...a:any[]) => dedupeEvent(...a),
+  // New distributed timers helpers (no-ops in tests)
+  scheduleDistributedAnswerTimeout: jest.fn(async ()=>{}),
+  clearDistributedTimer: jest.fn(async ()=>{}),
   DEFAULT_QUESTION_READ_MS: 1000,
   MIN_BUTTON_DELAY_MS: 10,
   MAX_BUTTON_DELAY_MS: 10,
   PRESS_WINDOW_MS: 1000,
   ANSWER_TIMEOUT_MS: 500,
+  // New scoring constants
+  ANSWER_BASE_SCORE: 100,
+  ANSWER_SPEED_BONUS_MAX: 50,
   clearAnswerWindow: jest.fn(),
 }));
 

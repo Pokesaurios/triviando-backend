@@ -56,12 +56,16 @@ jest.mock('../src/services/game.service', () => ({ __esModule: true,
   attemptFirstPress: (...a:any[]) => attemptFirstPress.apply(null, a),
   resetFirstPress: (...a:any[]) => resetFirstPress.apply(null, a),
   dedupeEvent: (...a:any[]) => dedupeEvent.apply(null, a),
+  scheduleDistributedAnswerTimeout: jest.fn(async ()=>{}),
+  clearDistributedTimer: jest.fn(async ()=>{}),
   clearAnswerWindow: jest.fn(),
   DEFAULT_QUESTION_READ_MS: 1,
   MIN_BUTTON_DELAY_MS: 0,
   MAX_BUTTON_DELAY_MS: 0,
   PRESS_WINDOW_MS: 1,
   ANSWER_TIMEOUT_MS: 5,
+  ANSWER_BASE_SCORE: 100,
+  ANSWER_SPEED_BONUS_MAX: 50,
 }));
 
 import { registerGameHandlers } from '../src/socket/game.handlers';

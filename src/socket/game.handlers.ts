@@ -7,7 +7,6 @@ import {
   getGameState,
   saveGameState,
   scheduleTimer,
-  clearTimer,
   attemptFirstPress,
   resetFirstPress,
   dedupeEvent,
@@ -17,6 +16,10 @@ import {
   MIN_BUTTON_DELAY_MS,
   PRESS_WINDOW_MS,
   ANSWER_TIMEOUT_MS,
+  scheduleDistributedAnswerTimeout,
+  clearDistributedTimer,
+  ANSWER_BASE_SCORE,
+  ANSWER_SPEED_BONUS_MAX,
 } from "../services/game.service";
 import { GameResult } from "../models/gameResult.model";
 import { Types } from "mongoose";
@@ -99,18 +102,18 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       if (!q) throw new Error("Question not found");
 
       const now = Date.now();
+      state.answerWindowStartedAt = now;
       state.answerWindowEndsAt = now + ANSWER_TIMEOUT_MS;
       await saveGameState(code, state);
       io.to(code).emit('game:update', state);
 
       const answerTimeoutKey = `${code}:answerTimeout:${state.roundSequence}`;
-      scheduleTimer(
-        answerTimeoutKey,
-        async () => {
-          await handleWinnerTimeout(code, io, state.roundSequence, user.id);
-        },
-        ANSWER_TIMEOUT_MS
-      );
+      // Programar timeout de respuesta vía BullMQ (distribuido)
+      await scheduleDistributedAnswerTimeout(answerTimeoutKey, {
+        code,
+        roundSequence: state.roundSequence,
+        userId: user.id,
+      }, ANSWER_TIMEOUT_MS);
 
       socket.emit("round:answerRequest", {
         roundSequence: state.roundSequence,
@@ -137,6 +140,11 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       const state = await getGameState(code);
       if (!state || state.roundSequence !== roundSequence) return ack?.({ ok: false, message: "Round mismatch" });
 
+      // Enforce answer window strictly
+      if (typeof state.answerWindowEndsAt === 'number' && Date.now() > state.answerWindowEndsAt) {
+        return ack?.({ ok: false, code: 408, message: "Tiempo de respuesta agotado" });
+      }
+
       const first = await redis.get(`room:${code}:firstPress`);
       if (first !== user.id) {
         logger.warn({ socketId: socket.id, code, userId: user.id }, "Unauthorized answer attempt - not current responder");
@@ -149,17 +157,24 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       const option = q?.options[selectedIndex];
       const correct = option === q?.correctAnswer || q?.correctAnswer === option;
 
-      clearTimer(`${code}:answerTimeout:${roundSequence}`);
+      await clearDistributedTimer(`${code}:answerTimeout:${roundSequence}`);
 
       if (correct) {
-        const base = 100;
-        state.scores[user.id] = (state.scores[user.id] || 0) + base;
+        // Compute speed-based bonus
+        const startAt = state.answerWindowStartedAt ?? (typeof state.answerWindowEndsAt === 'number' ? state.answerWindowEndsAt - ANSWER_TIMEOUT_MS : Date.now());
+        const elapsedMs = Math.max(0, Math.min(ANSWER_TIMEOUT_MS, Date.now() - startAt));
+        const bonus = Math.max(0, Math.floor((ANSWER_SPEED_BONUS_MAX) * (1 - (elapsedMs / ANSWER_TIMEOUT_MS))));
+        const gained = ANSWER_BASE_SCORE + bonus;
+        state.scores[user.id] = (state.scores[user.id] || 0) + gained;
         io.to(code).emit("round:result", {
           roundSequence,
           playerId: user.id,
           correct: true,
           correctAnswer: q?.correctAnswer,
           scores: state.scores,
+          responseTimeMs: elapsedMs,
+          bonus,
+          base: ANSWER_BASE_SCORE,
         });
 
         state.status = "result";
@@ -230,6 +245,12 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       ioInstance.to(code).emit("round:openButton", { roundSequence: state.roundSequence, pressWindowMs: PRESS_WINDOW_MS });
 
       scheduleTimer(`${code}:pressWindow:${state.roundSequence}`, async () => {
+        // Guard: only consider no-press if we are still in 'open' and no one won the button
+        const latest = await getGameState(code);
+        if (!latest || latest.roundSequence !== state.roundSequence) return;
+        if (latest.status !== 'open' || typeof latest.answerWindowEndsAt === 'number') return;
+        const first = await redis.get(`room:${code}:firstPress`);
+        if (first) return;
         await resetFirstPress(code);
         await handleNoPresses(code, ioInstance, state.roundSequence);
       }, PRESS_WINDOW_MS + 50);
@@ -272,42 +293,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     }, 1200);
   }
 
-  async function handleWinnerTimeout(
-    code: string,
-    ioInstance: Server,
-    roundSequence: number,
-    userId: string
-  ) {
-    const state = await getGameState(code);
-    if (state?.roundSequence !== roundSequence) return;
-
-    const now = Date.now();
-    if (state.answerWindowEndsAt && now < state.answerWindowEndsAt) {
-      const remaining = state.answerWindowEndsAt - now;
-      scheduleTimer(
-        `${code}:answerTimeout:${roundSequence}`,
-        async () => {
-          await handleWinnerTimeout(code, ioInstance, roundSequence, userId);
-        },
-        remaining
-      );
-      return;
-    }
-
-    await finalizeResultState(code, state, ioInstance, userId);
-
-    ioInstance.to(code).emit("round:result", {
-      roundSequence,
-      playerId: userId,
-      correct: false,
-      message: "⏰ Se acabó el tiempo para responder",
-      scores: state.scores,
-    });
-
-    await resetFirstPress(code);
-
-    setTimeout(() => startRoundOpenButtonAgain(code, ioInstance, roundSequence), 1200);
-  }
+  // handleWinnerTimeout ahora es gestionado por el worker BullMQ (ver services/timers.handlers.ts)
 
   async function finalizeResultState(code: string, state: any, ioInstance: Server, blockingUserId?: string) {
     state.status = "result";
@@ -337,6 +323,11 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     ioInstance.to(code).emit('game:update', state);
     ioInstance.to(code).emit("round:openButton", { roundSequence, pressWindowMs: PRESS_WINDOW_MS });
     scheduleTimer(`${code}:pressWindow:${roundSequence}`, async () => {
+      const latest = await getGameState(code);
+      if (!latest || latest.roundSequence !== roundSequence) return;
+      if (latest.status !== 'open' || typeof latest.answerWindowEndsAt === 'number') return;
+      const first = await redis.get(`room:${code}:firstPress`);
+      if (first) return;
       await resetFirstPress(code);
       await handleNoPresses(code, ioInstance, roundSequence);
     }, PRESS_WINDOW_MS + 50);
