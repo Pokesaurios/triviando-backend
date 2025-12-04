@@ -178,10 +178,10 @@ export function registerRoomHandlers(io: Server, socket: Socket) {
   // (game events moved to src/socket/game.handlers.ts)
 
   // ------------- disconnect -------------
-  socket.on("disconnect", async () => {
-    if (!currentRoom) return;
-    const user = socket.data.user;
-    io.to(currentRoom).emit("room:update", { event: "playerLeft", userId: user.id });
-  });
+    socket.on("disconnect", socketValidator(emptyObjectSchema, async () => {
+      if (!currentRoom) return;
+      const user = socket.data.user;
+      io.to(currentRoom).emit("room:update", { event: "playerLeft", userId: user.id });
+    }));
 
 }

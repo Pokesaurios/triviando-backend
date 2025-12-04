@@ -2,7 +2,8 @@ import mongoose, { Schema, Document, Types } from "mongoose";
 
 export interface User extends Document {
   _id: Types.ObjectId;
-  name: string;
+  username: string;
+  name?: string;
   email: string;
   password: string;
   createdAt: Date;
@@ -11,11 +12,14 @@ export interface User extends Document {
 
 const userSchema = new Schema<User>(
   {
-    name: { type: String, required: true },
+    username: { type: String, required: true, unique: true },
+    name: { type: String },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
   },
   { timestamps: true }
 );
 
-export default mongoose.model<User>("User", userSchema);
+const UserModel = mongoose.model<User>("User", userSchema);
+export const User = UserModel;
+export default UserModel;

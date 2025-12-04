@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Audit Report - Scenario 2</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .header h1 { margin: 0 0 10px 0; }
+        .header p { margin: 5px 0; opacity: 0.9; }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .metric-value {
+            font-size: 36px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+        .metric-label {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        .section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #667eea;
+            color: white;
+        }
+        .pass { color: #4CAF50; font-weight: bold; }
+        .fail { color: #f44336; font-weight: bold; }
+        .warn { color: #FF9800; font-weight: bold; }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: width 0.3s ease;
+        }
+        .endpoint-list {
+            list-style: none;
+            padding: 0;
+        }
+        .endpoint-list li {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .badge-success { background: #4CAF50; color: white; }
+        .badge-danger { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Security Audit Report</h1>
+        <p><strong>Scenario 2:</strong> Prevención ante ataques comunes</p>
+        <p>Generated: 4/12/2025, 5:35:53 p. m.</p>
+    </div>
+
+    <div class="metrics">
+        <div class="metric-card">
+            <div class="metric-label">Validation Coverage</div>
+            <div class="metric-value">100.0%</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 100%">
+                    100.0%
+                </div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Security Score</div>
+            <div class="metric-value">87/100</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 86.66666666666667%">
+                    87
+                </div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Vulnerabilities Found</div>
+            <div class="metric-value" style="color: #4CAF50">
+                0
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 Input Validation Coverage</h2>
+        <table>
+            <tr>
+                <th>Category</th>
+                <th>Total</th>
+                <th>Validated</th>
+                <th>Coverage</th>
+            </tr>
+            <tr>
+                <td>REST API Endpoints</td>
+                <td>12</td>
+                <td>12</td>
+                <td class="pass">
+                    100.0%
+                </td>
+            </tr>
+            <tr>
+                <td>Socket.IO Handlers</td>
+                <td>8</td>
+                <td>8</td>
+                <td class="pass">
+                    100.0%
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>🎯 Scenario 2 Compliance</h2>
+        <table>
+            <tr>
+                <th>Requirement</th>
+                <th>Status</th>
+                <th>Evidence</th>
+            </tr>
+            <tr>
+                <td>Validar y sanitizar inputs con Zod</td>
+                <td class="pass">
+                    ✅ PASS
+                </td>
+                <td>100.00% coverage</td>
+            </tr>
+            <tr>
+                <td>Rechazar payloads inválidos (400 Bad Request)</td>
+                <td class="pass">
+                    ✅ PASS
+                </td>
+                <td>1 middleware files</td>
+            </tr>
+            <tr>
+                <td>100% de inputs validados con Zod</td>
+                <td class="pass">
+                    ✅ PASS
+                </td>
+                <td>20/20 validated</td>
+            </tr>
+            <tr>
+                <td>0 vulnerabilidades detectadas en análisis estático</td>
+                <td class="pass">
+                    ✅ PASS
+                </td>
+                <td>0 found</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>🛡️ Security Measures</h2>
+        <p><strong>Zod Schemas:</strong> 12 schemas in 5 files</p>
+        <p><strong>Validation Middleware:</strong> 1 files using Zod</p>
+    </div>
+
+    
+    <div class="section" style="background: #e8f5e9;">
+        <h2 style="color: #2e7d32; border-color: #2e7d32;">✅ Excellent Security Posture!</h2>
+        <p style="color: #2e7d32;">All endpoints are properly validated with Zod. The system meets all requirements for Scenario 2.</p>
+    </div>
+    
+</body>
+</html>

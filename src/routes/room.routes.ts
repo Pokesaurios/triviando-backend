@@ -6,6 +6,8 @@ import { joinRoomSchema, createRoomSchema, roomCodeParamSchema } from "../schema
 
 const router = Router();
 
+// Backwards-compatible create endpoint: some clients/tests POST to `/api/rooms`
+router.post("/", authMiddleware, validateBody(createRoomSchema), createRoom);
 router.post("/create", authMiddleware, validateBody(createRoomSchema), createRoom);
 router.post("/join", authMiddleware, validateBody(joinRoomSchema), joinRoom);
 router.get("/:code", authMiddleware, validateParams(roomCodeParamSchema), getRoomState);

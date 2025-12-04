@@ -47,6 +47,12 @@ app.use("/api/v1/trivia", triviaRoutes);
 app.use("/api/v1/rooms", roomRoutes);
 app.use("/api/v1/game-results", gameResultRoutes);
 
+// Backwards-compatible mounts for tests and older clients (no /v1)
+app.use("/api/auth", authRoutes);
+app.use("/api/trivia", triviaRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/game-results", gameResultRoutes);
+
 // Swagger docs
 setupSwagger(app);
 

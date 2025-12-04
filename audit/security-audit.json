@@ -1,0 +1,151 @@
+{
+  "timestamp": "2025-12-04T22:35:53.105Z",
+  "totalEndpoints": 12,
+  "validatedEndpoints": 12,
+  "unvalidatedEndpoints": [],
+  "totalSocketHandlers": 8,
+  "validatedSocketHandlers": 8,
+  "unvalidatedSocketHandlers": [],
+  "zodSchemasCount": 12,
+  "validationMiddlewareUsage": 1,
+  "coveragePercentage": 100,
+  "vulnerabilitiesFound": 0,
+  "securityScore": 86.66666666666667,
+  "details": {
+    "restEndpoints": [
+      {
+        "file": "auth.routes.ts",
+        "method": "POST",
+        "path": "/register",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "auth.routes.ts",
+        "method": "POST",
+        "path": "/login",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "auth.routes.ts",
+        "method": "GET",
+        "path": "/me",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "auth.routes.ts",
+        "method": "POST",
+        "path": "/refresh",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "auth.routes.ts",
+        "method": "POST",
+        "path": "/logout",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "gameResult.routes.ts",
+        "method": "GET",
+        "path": "/",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "gameResult.routes.ts",
+        "method": "GET",
+        "path": "/:code",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "room.routes.ts",
+        "method": "POST",
+        "path": "/",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "room.routes.ts",
+        "method": "POST",
+        "path": "/create",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "room.routes.ts",
+        "method": "POST",
+        "path": "/join",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "room.routes.ts",
+        "method": "GET",
+        "path": "/:code",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      },
+      {
+        "file": "trivia.routes.ts",
+        "method": "POST",
+        "path": "/generate",
+        "hasValidation": true,
+        "validationType": "Zod Middleware"
+      }
+    ],
+    "socketHandlers": [
+      {
+        "file": "game.handlers.ts",
+        "event": "game:start",
+        "hasValidation": true
+      },
+      {
+        "file": "game.handlers.ts",
+        "event": "round:buttonPress",
+        "hasValidation": true
+      },
+      {
+        "file": "game.handlers.ts",
+        "event": "round:answer",
+        "hasValidation": true
+      },
+      {
+        "file": "room.handlers.ts",
+        "event": "room:create",
+        "hasValidation": true
+      },
+      {
+        "file": "room.handlers.ts",
+        "event": "room:join",
+        "hasValidation": true
+      },
+      {
+        "file": "room.handlers.ts",
+        "event": "room:chat",
+        "hasValidation": true
+      },
+      {
+        "file": "room.handlers.ts",
+        "event": "room:reconnect",
+        "hasValidation": true
+      },
+      {
+        "file": "room.handlers.ts",
+        "event": "disconnect",
+        "hasValidation": true
+      }
+    ],
+    "zodSchemas": [
+      "auth.ts",
+      "common.ts",
+      "game.ts",
+      "room.ts",
+      "trivia.ts"
+    ]
+  }
+}
