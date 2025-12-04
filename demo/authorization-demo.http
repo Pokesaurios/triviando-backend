@@ -1,0 +1,170 @@
+### =========================================
+### DEMOSTRACIÓN DE ESCENARIO DE AUTORIZACIÓN
+### Para presentación al jurado
+### =========================================
+
+@baseUrl = http://localhost:4000/api/v1
+@validToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+@expiredToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### =========================================
+### PASO 1: Crear usuario legítimo (Registro)
+### Respuesta esperada: 201 Created
+### =========================================
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Usuario Legítimo",
+  "email": "legitimo@demo.com",
+  "password": "Password123!"
+}
+
+### =========================================
+### PASO 2: Login exitoso - Obtener token válido
+### Respuesta esperada: 200 OK con token JWT
+### NOTA: Copiar el token recibido para los siguientes pasos
+### =========================================
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "legitimo@demo.com",
+  "password": "Password123!"
+}
+
+### =========================================
+### ESCENARIO A: Intento sin token (401 Unauthorized)
+### Prueba: Acceso a endpoint protegido sin autenticación
+### Resultado esperado: 401 + log de intento fallido
+### =========================================
+
+### A1: Crear sala sin token
+POST {{baseUrl}}/rooms/create
+Content-Type: application/json
+
+{
+  "triviaId": "507f1f77bcf86cd799439011"
+}
+
+### A2: Acceder a perfil sin token
+GET {{baseUrl}}/auth/me
+
+### A3: Generar trivia sin token
+POST {{baseUrl}}/trivia/generate
+Content-Type: application/json
+
+{
+  "category": "science",
+  "difficulty": "medium"
+}
+
+### =========================================
+### ESCENARIO B: Token malformado (401 Unauthorized)
+### Prueba: Headers con formato incorrecto
+### =========================================
+
+### B1: Token sin prefijo "Bearer"
+GET {{baseUrl}}/auth/me
+Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### B2: Token inválido
+GET {{baseUrl}}/auth/me
+Authorization: Bearer token_invalido_12345
+
+### B3: Token con firma incorrecta
+GET {{baseUrl}}/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+### =========================================
+### ESCENARIO C: Token expirado (401 Unauthorized)
+### Prueba: Token JWT con tiempo de expiración vencido
+### Nota: Usar token generado hace más de 3 horas
+### =========================================
+
+### C1: Intentar acceso con token expirado
+GET {{baseUrl}}/auth/me
+Authorization: {{expiredToken}}
+
+### C2: Crear sala con token expirado
+POST {{baseUrl}}/rooms/create
+Authorization: {{expiredToken}}
+Content-Type: application/json
+
+{
+  "triviaId": "507f1f77bcf86cd799439011"
+}
+
+### =========================================
+### ESCENARIO D: Autorización exitosa (200 OK)
+### Prueba: Acceso con token válido
+### Reemplazar {{validToken}} con el token obtenido en PASO 2
+### =========================================
+
+### D1: Acceder al perfil con token válido
+GET {{baseUrl}}/auth/me
+Authorization: {{validToken}}
+
+### D2: Crear sala con autenticación válida
+POST {{baseUrl}}/rooms/create
+Authorization: {{validToken}}
+Content-Type: application/json
+
+{
+  "triviaId": "507f1f77bcf86cd799439011"
+}
+
+### D3: Generar trivia con autenticación válida
+POST {{baseUrl}}/trivia/generate
+Authorization: {{validToken}}
+Content-Type: application/json
+
+{
+  "category": "science",
+  "difficulty": "medium",
+  "numQuestions": 5
+}
+
+### =========================================
+### ESCENARIO E: Acceso no autorizado a recursos ajenos (403 Forbidden)
+### Prueba: Usuario autenticado intenta acceder a sala donde no es participante
+### Nota: Requiere dos usuarios diferentes
+### =========================================
+
+### E1: Crear segundo usuario
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Usuario Atacante",
+  "email": "atacante@demo.com",
+  "password": "Password123!"
+}
+
+### E2: Login del segundo usuario
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "atacante@demo.com",
+  "password": "Password123!"
+}
+
+### E3: Intentar acceder a sala del primer usuario con token del segundo
+### (Usar código de sala creada en D2 y token del usuario atacante)
+GET {{baseUrl}}/rooms/XXXX
+Authorization: Bearer [TOKEN_USUARIO_ATACANTE]
+
+### E4: Intentar ver resultados de otra sala
+GET {{baseUrl}}/game-results/XXXX
+Authorization: Bearer [TOKEN_USUARIO_ATACANTE]
+
+### =========================================
+### RESUMEN DE VALIDACIONES
+### =========================================
+# ✓ A: Sin token → 401 Unauthorized
+# ✓ B: Token malformado → 401 Unauthorized  
+# ✓ C: Token expirado (>3h) → 401 Unauthorized
+# ✓ D: Token válido → 200 OK (acceso permitido)
+# ✓ E: Usuario autenticado sin permisos → 403 Forbidden
+# ✓ Todos los intentos fallidos se registran en logs

@@ -88,8 +88,13 @@ Los scripts disponibles en `package.json` (usa `npm run <script>`):
 - `build` — Compila TypeScript y copia archivos de docs a `dist`
 - `start` — Ejecuta el build (`node dist/server.js`)
 - `test` — Ejecuta tests con Jest y genera cobertura
+- `check:coverage` — Verifica que la cobertura cumple el umbral (80%)
 - `lint` — Ejecuta ESLint
 - `lint:fix` — Ejecuta ESLint y aplica arreglos automáticos
+- `audit:endpoints` — Audita endpoints para verificar protección (100%)
+- `monitor:security` — Monitor en tiempo real de intentos de autenticación
+- `generate:token` — Genera tokens JWT para testing (válidos, expirados, inválidos)
+- `demo:auth` — Ejecuta demostración guiada del escenario de autorización
 
 Ejemplos (PowerShell):
 
@@ -98,6 +103,28 @@ npm run dev     # desarrollo
 npm run build   # compilar
 npm start       # ejecutar build en producción
 npm test        # correr tests
+npm run audit:endpoints  # verificar seguridad de endpoints
+npm run demo:auth        # demostración de autorización
+```
+
+### 🛡️ Demostración de Escenario de Calidad: Autorización
+
+Este proyecto incluye una suite completa para demostrar el cumplimiento del escenario de autorización:
+
+```bash
+# Opción 1: Demo automatizada guiada (recomendado)
+npm run demo:auth
+
+# Opción 2: Herramientas individuales
+npm run audit:endpoints    # Verificar 100% de endpoints protegidos
+npm run generate:token all # Generar tokens de prueba
+npm run monitor:security   # Dashboard de intentos en tiempo real
+```
+
+**Documentación completa:**
+- 📖 [`demo/QUICK_START.md`](demo/QUICK_START.md) - Guía rápida (5 min)
+- 📖 [`demo/AUTHORIZATION_DEMO_README.md`](demo/AUTHORIZATION_DEMO_README.md) - Guía detallada (20 min)
+- 🧪 [`demo/authorization-demo.http`](demo/authorization-demo.http) - Requests HTTP ejecutables
 ```
 
 ## Documentación de la API

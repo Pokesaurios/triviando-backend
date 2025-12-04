@@ -10,7 +10,12 @@
     "test": "jest --detectOpenHandles --coverage",
     "check:coverage": "node -e \"const fs=require('fs');const p='coverage/coverage-summary.json';if(!fs.existsSync(p)){console.error('Coverage summary not found');process.exit(1);}const cov=JSON.parse(fs.readFileSync(p)).total.lines.pct;console.log('Lines coverage:',cov+'%');if(cov<80){console.error('Coverage threshold not met');process.exit(1);}\"",
     "lint": "eslint src --ext .ts,.tsx",
-    "lint:fix": "eslint src --ext .ts,.tsx --fix"
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "audit:endpoints": "ts-node scripts/audit-endpoints.ts",
+    "monitor:security": "ts-node scripts/monitor-security-logs.ts",
+    "generate:token": "ts-node scripts/generate-tokens.ts",
+    "demo:auth": "ts-node scripts/run-authorization-demo.ts",
+    "verify:demo": "powershell -ExecutionPolicy Bypass -File scripts/verify-demo-setup.ps1"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
