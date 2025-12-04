@@ -43,7 +43,7 @@ async function finalizeResultState(io: Server, code: string, state: any, blockin
   }
   clearAnswerWindow(state);
   await saveGameState(code, state);
-  io.to(code).emit('game:update', state);
+  io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
   if (message) {
     io.to(code).emit("round:result", {
       roundSequence: state.roundSequence,
@@ -51,6 +51,7 @@ async function finalizeResultState(io: Server, code: string, state: any, blockin
       correct: false,
       message,
       scores: state.scores,
+      serverNow: Date.now(),
     });
   }
   await resetFirstPress(code);
@@ -69,8 +70,8 @@ async function startRoundOpenButtonAgain(io: Server, code: string, roundSequence
   await resetFirstPress(code);
   state.status = "open";
   await saveGameState(code, state);
-  io.to(code).emit('game:update', state);
-  io.to(code).emit("round:openButton", { roundSequence, pressWindowMs: PRESS_WINDOW_MS });
+  io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
+  io.to(code).emit("round:openButton", { roundSequence, pressWindowMs: PRESS_WINDOW_MS, serverNow: Date.now() });
 
   // Fallback por si nadie presiona
   scheduleTimer(`${code}:pressWindow:${roundSequence}`, async () => {
@@ -108,7 +109,7 @@ async function handleNoPresses(io: Server, code: string, roundSequence: number) 
   clearAnswerWindow(state);
   state.currentQuestionIndex += 1;
   await saveGameState(code, state);
-  io.to(code).emit('game:update', state);
+  io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
   setTimeout(async () => {
     const triviaDoc = await Trivia.findById(state.triviaId).lean();
@@ -140,12 +141,13 @@ async function startRound(io: Server, code: string) {
   clearAnswerWindow(state);
   state.status = "reading";
   await saveGameState(code, state);
-  io.to(code).emit('game:update', state);
+  io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
   io.to(code).emit("round:showQuestion", {
     roundSequence: state.roundSequence,
     questionText: q.question,
     readMs,
+    serverNow: Date.now(),
   });
 
   scheduleTimer(`${code}:openButton:${state.roundSequence}`, async () => {
@@ -154,8 +156,8 @@ async function startRound(io: Server, code: string) {
     if (!s || s.roundSequence !== state.roundSequence) return;
     s.status = "open";
     await saveGameState(code, s);
-    io.to(code).emit('game:update', s);
-    io.to(code).emit("round:openButton", { roundSequence: state.roundSequence, pressWindowMs: PRESS_WINDOW_MS });
+    io.to(code).emit('game:update', { ...s, serverNow: Date.now() });
+    io.to(code).emit("round:openButton", { roundSequence: state.roundSequence, pressWindowMs: PRESS_WINDOW_MS, serverNow: Date.now() });
 
     scheduleTimer(`${code}:pressWindow:${state.roundSequence}`, async () => {
       const latest = await getGameState(code);

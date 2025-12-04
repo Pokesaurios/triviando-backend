@@ -7,6 +7,7 @@ import {
   getGameState,
   saveGameState,
   scheduleTimer,
+  clearTimer,
   attemptFirstPress,
   resetFirstPress,
   dedupeEvent,
@@ -49,7 +50,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       const totalQuestions = Array.isArray(triviaDoc?.questions) && triviaDoc.questions.length > 0
         ? Math.max(0, triviaDoc.questions.length - 1)
         : 0;
-      io.to(code).emit("game:started", { ok: true, totalQuestions });
+      io.to(code).emit("game:started", { ok: true, totalQuestions, serverNow: Date.now() });
 
       await startRound(code, io);
 
@@ -89,12 +90,13 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       });
       state.status = "answering";
       await saveGameState(code, state);
-      io.to(code).emit('game:update', state);
+      io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
       io.to(code).emit("round:playerWonButton", {
         roundSequence,
         playerId: user.id,
         name: user.name,
+        serverNow: Date.now(),
       });
 
       const trivia = await Trivia.findById(state.triviaId).lean();
@@ -105,7 +107,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       state.answerWindowStartedAt = now;
       state.answerWindowEndsAt = now + ANSWER_TIMEOUT_MS;
       await saveGameState(code, state);
-      io.to(code).emit('game:update', state);
+      io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
       const answerTimeoutKey = `${code}:answerTimeout:${state.roundSequence}`;
       // Programar timeout de respuesta vía BullMQ (distribuido)
@@ -115,11 +117,33 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         userId: user.id,
       }, ANSWER_TIMEOUT_MS);
 
+      // Local fallback: always schedule an in-memory timer as backup so
+      // that answer timeouts are handled even when the distributed worker
+      // or Redis/Bull is not available or delayed. The worker's handler
+      // is idempotent/guarded, so duplicate executions are safe.
+      const localAnswerKey = `${code}:answerTimeout:local:${state.roundSequence}`;
+      scheduleTimer(localAnswerKey, async () => {
+        const latest = await getGameState(code);
+        if (!latest || latest.roundSequence !== state.roundSequence) return;
+        // If an answer window is still open or not yet processed, finalize by timeout
+        if (typeof latest.answerWindowEndsAt === 'number' && Date.now() < latest.answerWindowEndsAt) {
+          // Another timer (distributed) should handle it; skip here to avoid racing to earlier time
+          return;
+        }
+        // Call the internal finalize flow to mark result by timeout
+        try {
+          await finalizeResultState(code, latest, io, user.id);
+        } catch (err) {
+          // swallow errors - worker will handle in distributed scenarios
+        }
+      }, ANSWER_TIMEOUT_MS + 100);
+
       socket.emit("round:answerRequest", {
         roundSequence: state.roundSequence,
         options: q.options,
         answerTimeoutMs: ANSWER_TIMEOUT_MS,
         endsAt: state.answerWindowEndsAt,
+        serverNow: Date.now(),
       });
 
       ack?.({ ok: true, message: "You pressed first" });
@@ -158,6 +182,8 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       const correct = option === q?.correctAnswer || q?.correctAnswer === option;
 
       await clearDistributedTimer(`${code}:answerTimeout:${roundSequence}`);
+      // Clear local fallback timer as well
+      try { clearTimer(`${code}:answerTimeout:local:${roundSequence}`); } catch {}
 
       if (correct) {
         // Compute speed-based bonus
@@ -175,6 +201,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
           responseTimeMs: elapsedMs,
           bonus,
           base: ANSWER_BASE_SCORE,
+          serverNow: Date.now(),
         });
 
         state.status = "result";
@@ -182,7 +209,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         clearAnswerWindow(state);
         state.currentQuestionIndex += 1;
         await saveGameState(code, state);
-        io.to(code).emit('game:update', state);
+        io.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
         const triviaDoc = await Trivia.findById(state.triviaId).lean();
         if (!triviaDoc || !Array.isArray(triviaDoc.questions) || state.currentQuestionIndex >= Math.max(0, triviaDoc.questions.length - 1)) {
@@ -194,7 +221,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       } else {
         await finalizeResultState(code, state, io, user.id);
 
-        io.to(code).emit("round:result", { roundSequence, playerId: user.id, correct: false, message: "Incorrect answer", scores: state.scores });
+        io.to(code).emit("round:result", { roundSequence, playerId: user.id, correct: false, message: "Incorrect answer", scores: state.scores, serverNow: Date.now() });
 
         await resetFirstPress(code);
         setTimeout(() => startRoundOpenButtonAgain(code, io, roundSequence), 800);
@@ -226,12 +253,13 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     clearAnswerWindow(state);
     state.status = "reading";
     await saveGameState(code, state);
-    ioInstance.to(code).emit('game:update', state);
+    ioInstance.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
     ioInstance.to(code).emit("round:showQuestion", {
       roundSequence: state.roundSequence,
       questionText: q.question,
       readMs,
+      serverNow: Date.now(),
     });
 
     scheduleTimer(`${code}:openButton:${state.roundSequence}`, async () => {
@@ -240,9 +268,9 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       if (!s || s.roundSequence !== state.roundSequence) return;
       s.status = "open";
       await saveGameState(code, s);
-      ioInstance.to(code).emit('game:update', s);
+      ioInstance.to(code).emit('game:update', { ...s, serverNow: Date.now() });
 
-      ioInstance.to(code).emit("round:openButton", { roundSequence: state.roundSequence, pressWindowMs: PRESS_WINDOW_MS });
+      ioInstance.to(code).emit("round:openButton", { roundSequence: state.roundSequence, pressWindowMs: PRESS_WINDOW_MS, serverNow: Date.now() });
 
       scheduleTimer(`${code}:pressWindow:${state.roundSequence}`, async () => {
         // Guard: only consider no-press if we are still in 'open' and no one won the button
@@ -274,6 +302,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       message: "Nadie presionó el botón. Se revela la respuesta",
       correctAnswer: q.correctAnswer,
       scores: state.scores,
+      serverNow: Date.now(),
     });
 
     state.status = "result";
@@ -281,7 +310,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     clearAnswerWindow(state);
     state.currentQuestionIndex += 1;
     await saveGameState(code, state);
-    ioInstance.to(code).emit('game:update', state);
+    ioInstance.to(code).emit('game:update', { ...state, serverNow: Date.now() });
 
     setTimeout(async () => {
       const triviaDoc = await Trivia.findById(state.triviaId).lean();
@@ -305,7 +334,7 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     }
     clearAnswerWindow(state);
     await saveGameState(code, state);
-    ioInstance.to(code).emit('game:update', state);
+    ioInstance.to(code).emit('game:update', { ...state, serverNow: Date.now() });
   }
 
   async function startRoundOpenButtonAgain(code: string, ioInstance: Server, roundSequence: number) {
@@ -320,8 +349,8 @@ export function registerGameHandlers(io: Server, socket: Socket) {
     await resetFirstPress(code);
     state.status = "open";
     await saveGameState(code, state);
-    ioInstance.to(code).emit('game:update', state);
-    ioInstance.to(code).emit("round:openButton", { roundSequence, pressWindowMs: PRESS_WINDOW_MS });
+    ioInstance.to(code).emit('game:update', { ...state, serverNow: Date.now() });
+    ioInstance.to(code).emit("round:openButton", { roundSequence, pressWindowMs: PRESS_WINDOW_MS, serverNow: Date.now() });
     scheduleTimer(`${code}:pressWindow:${roundSequence}`, async () => {
       const latest = await getGameState(code);
       if (!latest || latest.roundSequence !== roundSequence) return;
@@ -396,9 +425,10 @@ export function registerGameHandlers(io: Server, socket: Socket) {
       await Room.findOneAndUpdate({ code }, { status: "finished" }).exec();
 
       ioInstance.to(code).emit("game:ended", {
-        scores: state.scores,
-        winner,
-      });
+          scores: state.scores,
+          winner,
+          serverNow: Date.now(),
+        });
 
     } catch (err) {
       logger.error({ err: (err as any)?.message || err, code }, "endGame: error al guardar resultado");

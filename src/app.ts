@@ -24,7 +24,8 @@ connectDB();
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
   : '*';
-app.use(cors({ origin: allowedOrigins }));
+// Allow credentials so cookies (refresh tokens) can be sent from frontend
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // Health check routes

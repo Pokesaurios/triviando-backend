@@ -54,12 +54,24 @@ export const createRoom = async (req: Request, res: Response) => {
     const cacheData = buildRoomCacheData(room);
     await redis.setex(`room:${code}:state`, ROOM_CACHE_TTL, JSON.stringify(cacheData));
 
-    return res.status(201).json({
-      message: "Sala creada 🎉",
+    // Build room payload matching frontend expectations
+    const responseRoom = {
+      _id: room._id,
+      id: room._id,
       code: room.code,
+      roomId: room._id,
       triviaId: trivia._id,
+      hostId: user.id,
       maxPlayers,
       host: player.name,
+      players: room.players.map((p: any) => ({ userId: p.userId.toString(), name: p.name, joinedAt: p.joinedAt })),
+      chatHistory: [],
+    };
+
+    return res.status(201).json({
+      message: "Sala creada 🎉",
+      ok: true,
+      room: responseRoom,
     });
   } catch (error: any) {
     logger.error({ err: error?.message || error, body: req.body }, "createRoom error");
