@@ -7,6 +7,8 @@
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Pokesaurios_triviando-backend&metric=alert_status&token=88e1d8129af6360bb8859bc4ca300010cb528328)](https://sonarcloud.io/summary/new_code?id=Pokesaurios_triviando-backend)
 
+[![Build, Test TrivIAndo app to Azure Web App - triviando-backend](https://github.com/Pokesaurios/triviando-backend/actions/workflows/test_triviando-backend.yml/badge.svg?branch=main)](https://github.com/Pokesaurios/triviando-backend/actions/workflows/test_triviando-backend.yml)
+
 Backend del servidor de TrivIAndo: una aplicación en TypeScript que expone una API REST y WebSockets (Socket.IO) para jugar trivias en tiempo real, almacenar resultados y aprovechar generación de contenido con AI.
 
 ## Contenido
