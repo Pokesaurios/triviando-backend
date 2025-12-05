@@ -20,6 +20,10 @@ export async function handleWinnerTimeoutSafe(io: Server, code: string, roundSeq
   const state = await getGameState(code);
   if (!state || state.roundSequence !== roundSequence) return;
 
+  // If the round is no longer in the answering state, another flow already
+  // resolved the round (player answered or round changed). Avoid double finalization.
+  if (state.status !== 'answering') return;
+
   const now = Date.now();
   if (state.answerWindowEndsAt && now < state.answerWindowEndsAt) {
     // Otro job reprogramará si aún no expira; aquí no hacemos nada para evitar duplicados.

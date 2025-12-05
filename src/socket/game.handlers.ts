@@ -145,12 +145,6 @@ export function registerGameHandlers(io: Server, socket: Socket) {
         return ack?.({ ok: false, code: 408, message: "Tiempo de respuesta agotado" });
       }
 
-      const first = await redis.get(`room:${code}:firstPress`);
-      if (first !== user.id) {
-        logger.warn({ socketId: socket.id, code, userId: user.id }, "Unauthorized answer attempt - not current responder");
-        return ack?.({ ok: false, code: 403, message: "No eres quien está respondiendo" });
-      }
-
       const trivia = await Trivia.findById(state.triviaId).lean();
       const q = trivia?.questions[state.currentQuestionIndex];
 

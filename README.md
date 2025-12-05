@@ -265,8 +265,7 @@ Esta sección documenta los eventos y el estado intercambiado por los clientes d
   - Ack, OK:
     - Correcta: `{ ok: true, correct: true }`
     - Incorrecta: `{ ok: true, correct: false }`
-  - Ack error si responde otro jugador: `{ ok: false, message: "No eres quien está respondiendo" }`
-
+    
 - round:result (server → room)
   - Correcta: `{ roundSequence, playerId, correct: true, correctAnswer, scores }`
   - Incorrecta / timeout / nadie presionó: incluye `correct: false | null`, `message`, y `scores` (y `correctAnswer` si aplica)

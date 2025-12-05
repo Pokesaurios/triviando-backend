@@ -15,6 +15,7 @@ const server = http.createServer(app);
 const io = initSocketServer(server);
 // Start distributed timers worker (no-op in tests)
 const worker = startTimersWorker();
+logger.info({ worker: !!worker }, 'Timers worker status');
 
 server.listen(PORT, () => {
   logger.info({ port: PORT }, `🚀 Server running`);
